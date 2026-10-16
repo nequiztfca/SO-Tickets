@@ -1,0 +1,275 @@
+/**
+ * ============================================================
+ *  Sistema Tickets TFCA — Backend en Google Apps Script
+ *  Base de datos: Google Sheets  ·  Archivos: Google Drive
+ *
+ *  PASOS:
+ *   1) Crea una Hoja de cálculo en Google Drive ("Sistema Tickets TFCA - BD").
+ *   2) Extensiones → Apps Script → pega este archivo como Code.gs.
+ *   3) Cambia CFG.API_KEY (igual que en js/config.js).
+ *   4) Ejecuta la función  setup()  una vez y acepta los permisos.
+ *   5) Implementar → Nueva implementación → Aplicación web
+ *        Ejecutar como: Yo   ·   Quién tiene acceso: Cualquier usuario
+ *   6) Copia la URL (/exec) en js/config.js → API_URL.
+ *  Cada vez que cambies este código: Implementar → Administrar implementaciones
+ *  → editar (lápiz) → Versión: "Nueva versión" (así la URL no cambia).
+ * ============================================================
+ */
+
+const CFG = {
+  API_KEY: 'tfca-2026-cambia-esta-clave',     // = ENV.API_KEY del front
+  SPREADSHEET_ID: '',                          // vacío = la hoja a la que está ligado el script
+  FOLDER_NAME: 'Sistema Tickets TFCA - Adjuntos',
+  USERS: ['usuario1', 'usuario2', 'usuario3', 'usuario4', 'usuario5'], // usuarios válidos para escribir
+  ID_PREFIX: 'TFCA-'
+};
+
+const SHEETS = {
+  Tickets:     ['id', 'titulo', 'descripcion', 'prioridad', 'categoria', 'estado', 'asignados', 'creadoPor', 'creado', 'actualizado', 'fechaLimite', 'cerrado', 'cerradoPor'],
+  Seguimiento: ['id', 'ticketId', 'tipo', 'autor', 'texto', 'lenguaje', 'fileId', 'fileName', 'mime', 'url', 'fecha'],
+  Checklist:   ['id', 'ticketId', 'texto', 'hecho', 'autor', 'fecha', 'hechoPor']
+};
+const ESTADOS = { pendiente: 'Pendiente', proceso: 'En proceso', cerrado: 'Cerrado' };
+const TIPOS = ['comentario', 'codigo', 'imagen', 'archivo'];
+
+/* ======================= Instalación ======================= */
+function setup() {
+  const ss = ss_();
+  Object.keys(SHEETS).forEach(name => {
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = ss.insertSheet(name);
+    const cols = SHEETS[name];
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@'); // todo como texto (evita conversión de fechas)
+  });
+  const def = ss.getSheetByName('Hoja 1') || ss.getSheetByName('Sheet1');
+  if (def && ss.getSheets().length > 1 && def.getLastRow() === 0) ss.deleteSheet(def);
+  const folder = folder_();
+  Logger.log('✅ Listo. Hojas creadas en: ' + ss.getUrl());
+  Logger.log('📁 Carpeta de adjuntos: ' + folder.getUrl());
+}
+
+/* ======================= Endpoints ======================= */
+function doGet() {
+  return json_({ ok: true, app: 'Sistema Tickets TFCA', time: new Date().toISOString() });
+}
+
+function doPost(e) {
+  try {
+    const req = JSON.parse(e.postData.contents || '{}');
+    if (req.key !== CFG.API_KEY) throw new Error('Clave API inválida');
+    const fn = ACTIONS[req.action];
+    if (!fn) throw new Error('Acción desconocida: ' + req.action);
+    return json_({ ok: true, data: fn(req) });
+  } catch (err) {
+    return json_({ ok: false, error: String(err && err.message || err) });
+  }
+}
+
+const ACTIONS = {
+  ping: () => ({ pong: true }),
+
+  list: () => ({
+    tickets: readAll_('Tickets'),
+    seguimiento: readAll_('Seguimiento'),
+    checklist: readAll_('Checklist').map(normCheck_)
+  }),
+
+  get: r => {
+    const t = readAll_('Tickets').find(x => x.id === r.id);
+    if (!t) throw new Error('Ticket no encontrado');
+    return {
+      ticket: t,
+      seguimiento: readAll_('Seguimiento').filter(x => x.ticketId === r.id),
+      checklist: readAll_('Checklist').filter(x => x.ticketId === r.id).map(normCheck_)
+    };
+  },
+
+  create: r => withLock_(() => {
+    const user = needUser_(r);
+    if (!String(r.titulo || '').trim()) throw new Error('El título es obligatorio');
+    const now = iso_();
+    const max = readAll_('Tickets').reduce((m, t) => Math.max(m, parseInt(String(t.id).replace(/\D/g, ''), 10) || 0), 0);
+    const t = {
+      id: CFG.ID_PREFIX + String(max + 1).padStart(4, '0'),
+      titulo: clean_(r.titulo, 140), descripcion: clean_(r.descripcion, 20000),
+      prioridad: r.prioridad || 'Media', categoria: r.categoria || 'Otro',
+      estado: 'pendiente', asignados: list_(r.asignados).join(','),
+      creadoPor: user, creado: now, actualizado: now,
+      fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: ''
+    };
+    append_('Tickets', t);
+    log_(t.id, user, 'creó el ticket');
+    (r.checklist || []).forEach(txt => append_('Checklist', { id: uid_('c'), ticketId: t.id, texto: clean_(txt, 200), hecho: 'FALSE', autor: user, fecha: now, hechoPor: '' }));
+    return t;
+  }),
+
+  update: r => withLock_(() => {
+    const user = needUser_(r);
+    const t = readAll_('Tickets').find(x => x.id === r.id);
+    if (!t) throw new Error('Ticket no encontrado');
+    const f = r.fields || {}, patch = {}, logs = [];
+    const name = u => u; // el front traduce usuario → nombre
+
+    if ('asignados' in f) {
+      const prev = list_(t.asignados), next = list_(f.asignados);
+      next.filter(x => prev.indexOf(x) < 0).forEach(x => logs.push('agregó a ' + name(x)));
+      prev.filter(x => next.indexOf(x) < 0).forEach(x => logs.push('quitó a ' + name(x)));
+      patch.asignados = next.join(',');
+    }
+    if ('estado' in f && f.estado !== t.estado) {
+      if (!ESTADOS[f.estado]) throw new Error('Estado inválido');
+      if (f.estado === 'cerrado') { patch.cerrado = iso_(); patch.cerradoPor = user; logs.push('cerró el ticket'); }
+      else if (t.estado === 'cerrado') { patch.cerrado = ''; patch.cerradoPor = ''; logs.push('reabrió el ticket (' + ESTADOS[f.estado] + ')'); }
+      else logs.push('cambió el estado a ' + ESTADOS[f.estado]);
+      patch.estado = f.estado;
+    }
+    ['titulo', 'descripcion', 'prioridad', 'categoria', 'fechaLimite'].forEach(k => {
+      if (k in f && String(f[k]) !== String(t[k])) {
+        patch[k] = clean_(f[k], k === 'descripcion' ? 20000 : 140);
+        if (k === 'prioridad') logs.push('cambió la prioridad a ' + f[k]);
+        if (k === 'fechaLimite') logs.push(f[k] ? 'fijó fecha límite ' + f[k] : 'quitó la fecha límite');
+        if (k === 'titulo' || k === 'descripcion') logs.indexOf('editó el ticket') < 0 && logs.push('editó el ticket');
+      }
+    });
+    patch.actualizado = iso_();
+    updateRow_('Tickets', t.id, patch);
+    logs.forEach(txt => log_(t.id, user, txt));
+    return Object.assign({}, t, patch);
+  }),
+
+  addEntry: r => withLock_(() => {
+    const user = needUser_(r);
+    if (TIPOS.indexOf(r.tipo) < 0) throw new Error('Tipo inválido');
+    const t = readAll_('Tickets').find(x => x.id === r.ticketId);
+    if (!t) throw new Error('Ticket no encontrado');
+    const e = { id: uid_('e'), ticketId: t.id, tipo: r.tipo, autor: user, texto: clean_(r.texto, 45000), lenguaje: r.lenguaje || '', fileId: '', fileName: '', mime: '', url: '', fecha: iso_() };
+    if (r.file && r.file.base64) {
+      const blob = Utilities.newBlob(Utilities.base64Decode(r.file.base64), r.file.mime || 'application/octet-stream', r.file.name || 'archivo');
+      const file = ticketFolder_(t.id).createFile(blob);
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { /* dominio puede bloquearlo */ }
+      e.fileId = file.getId(); e.fileName = file.getName(); e.mime = file.getMimeType(); e.url = file.getUrl();
+    }
+    append_('Seguimiento', e);
+    updateRow_('Tickets', t.id, { actualizado: iso_() });
+    return e;
+  }),
+
+  checkAdd: r => withLock_(() => {
+    const user = needUser_(r);
+    if (!String(r.texto || '').trim()) throw new Error('Texto vacío');
+    const c = { id: uid_('c'), ticketId: r.ticketId, texto: clean_(r.texto, 200), hecho: 'FALSE', autor: user, fecha: iso_(), hechoPor: '' };
+    append_('Checklist', c);
+    return normCheck_(c);
+  }),
+
+  checkToggle: r => withLock_(() => {
+    const user = needUser_(r);
+    const patch = { hecho: r.hecho ? 'TRUE' : 'FALSE', hechoPor: r.hecho ? user : '' };
+    if (!updateRow_('Checklist', r.id, patch)) throw new Error('Elemento no encontrado');
+    return { id: r.id, hecho: !!r.hecho };
+  }),
+
+  checkDelete: r => withLock_(() => {
+    needUser_(r);
+    const sh = sheet_('Checklist');
+    const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+    for (let i = ids.length - 1; i >= 1; i--) if (String(ids[i][0]) === r.id) { sh.deleteRow(i + 1); break; }
+    return { id: r.id };
+  })
+};
+
+/* ======================= Helpers de datos ======================= */
+function ss_() { return CFG.SPREADSHEET_ID ? SpreadsheetApp.openById(CFG.SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+function sheet_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh) throw new Error('Falta la hoja "' + name + '". Ejecuta setup() en Apps Script.');
+  return sh;
+}
+function readAll_(name) {
+  const sh = sheet_(name), cols = SHEETS[name];
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, cols.length).getValues()
+    .filter(row => row[0] !== '')
+    .map(row => {
+      const o = {};
+      cols.forEach((c, i) => {
+        let v = row[i];
+        if (v instanceof Date) v = c === 'fechaLimite' ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : v.toISOString();
+        v = String(v);
+        if (/^'[=+\-@]/.test(v)) v = v.slice(1);
+        o[c] = v;
+      });
+      return o;
+    });
+}
+function append_(name, obj) {
+  const sh = sheet_(name), cols = SHEETS[name];
+  const row = sh.getLastRow() + 1;
+  if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 200);
+  sh.getRange(row, 1, 1, cols.length)
+    .setNumberFormat('@')
+    .setValues([cols.map(c => obj[c] === undefined || obj[c] === null ? '' : String(obj[c]))]);
+}
+function updateRow_(name, id, patch) {
+  const sh = sheet_(name), cols = SHEETS[name];
+  const last = sh.getLastRow(); if (last < 2) return false;
+  const ids = sh.getRange(2, 1, last - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      const r = sh.getRange(i + 2, 1, 1, cols.length), row = r.getValues()[0];
+      Object.keys(patch).forEach(k => { const c = cols.indexOf(k); if (c >= 0) row[c] = String(patch[k]); });
+      r.setValues([row]);
+      return true;
+    }
+  }
+  return false;
+}
+function log_(ticketId, user, texto) {
+  append_('Seguimiento', { id: uid_('e'), ticketId: ticketId, tipo: 'sistema', autor: user, texto: texto, fecha: iso_() });
+}
+function normCheck_(c) { return Object.assign({}, c, { hecho: String(c.hecho).toUpperCase() === 'TRUE' }); }
+
+/* ======================= Drive ======================= */
+function folder_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const it = DriveApp.getFoldersByName(CFG.FOLDER_NAME);
+  const f = it.hasNext() ? it.next() : DriveApp.createFolder(CFG.FOLDER_NAME);
+  props.setProperty('FOLDER_ID', f.getId());
+  return f;
+}
+function ticketFolder_(ticketId) {
+  const root = folder_(), it = root.getFoldersByName(ticketId);
+  return it.hasNext() ? it.next() : root.createFolder(ticketId);
+}
+
+/* ======================= Utilidades ======================= */
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+function needUser_(r) {
+  const u = String(r.user || '').trim();
+  if (!u) throw new Error('Inicia sesión para realizar esta acción');
+  if (CFG.USERS.length && CFG.USERS.indexOf(u) < 0) throw new Error('Usuario no autorizado');
+  return u;
+}
+function list_(v) {
+  const a = Array.isArray(v) ? v : String(v || '').split(',');
+  const out = [];
+  a.map(s => String(s).trim()).filter(String).forEach(s => { if (out.indexOf(s) < 0) out.push(s); });
+  return out;
+}
+function clean_(v, max) {
+  let s = String(v == null ? '' : v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s; // evita fórmulas en la hoja
+  return s.slice(0, max || 1000);
+}
+function iso_() { return new Date().toISOString(); }
+function uid_(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
