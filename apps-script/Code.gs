@@ -20,7 +20,8 @@ const CFG = {
   API_KEY: 'tfca-2026-cambia-esta-clave',     // = ENV.API_KEY del front
   SPREADSHEET_ID: '',                          // vacío = la hoja a la que está ligado el script
   FOLDER_NAME: 'Sistema Tickets TFCA - Adjuntos',
-  USERS: ['usuario1', 'usuario2', 'usuario3', 'usuario4', 'usuario5'], // usuarios válidos para escribir
+  // Deben ser EXACTAMENTE los mismos "user" de js/config.js (respeta mayúsculas y símbolos)
+  USERS: ['nexNekiz@', 'Brandom12@', 'Edd234', 'nantoree:)', 'usuario5'],
   ID_PREFIX: 'TFCA-'
 };
 

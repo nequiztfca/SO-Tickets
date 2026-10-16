@@ -299,7 +299,9 @@
     entryHtml(e) {
       const u = this.user(e.autor);
       if (e.tipo === 'sistema') {
-        const txt = ENV.USERS.reduce((s, x) => s.replace(new RegExp('\\b' + x.user + '\\b', 'g'), x.name), String(e.texto));
+        // Reemplaza usuarios por nombres (acepta símbolos como @ o :) en el usuario)
+        const txt = ENV.USERS.slice().sort((a, b) => b.user.length - a.user.length)
+          .reduce((s, x) => s.split(x.user).join(x.name), String(e.texto));
         return `<div class="tl-item tl-system"><i class="bi bi-dot"></i><span><b>${esc(u.name)}</b> ${esc(txt)} · <span class="text-body-secondary" title="${this.fmtDate(e.fecha)}">${this.ago(e.fecha)}</span></span></div>`;
       }
       let body = '';
