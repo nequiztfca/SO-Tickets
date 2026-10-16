@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket · Sistema Tickets TFCA</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" rel="stylesheet">
+  <link href="css/app.css" rel="stylesheet">
+</head>
+<body>
+  <div id="app-header"></div>
+
+  <main class="container-xl py-3">
+    <a href="index.html" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Volver al tablero</a>
+    <div id="loading" class="loading-overlay"><div class="spinner-border"></div></div>
+    <div id="errorBox" class="alert alert-danger mt-3 d-none"></div>
+
+    <div class="row g-3 mt-1 d-none" id="page">
+      <!-- Columna principal -->
+      <div class="col-lg-8">
+        <div class="card border-0 rounded-4 mb-3"><div class="card-body" id="ticketHead"></div></div>
+
+        <h6 class="mt-4 mb-2"><i class="bi bi-chat-square-text"></i> Seguimiento</h6>
+        <div class="d-flex gap-2 mb-2 small" id="tlFilter">
+          <button class="btn btn-sm btn-outline-secondary active" data-f="">Todo</button>
+          <button class="btn btn-sm btn-outline-secondary" data-f="comentario">Comentarios</button>
+          <button class="btn btn-sm btn-outline-secondary" data-f="codigo">Código</button>
+          <button class="btn btn-sm btn-outline-secondary" data-f="adjuntos">Adjuntos</button>
+        </div>
+        <div class="timeline mb-3" id="timeline"></div>
+
+        <!-- Input único de seguimiento: comentario / código / imágenes / archivos -->
+        <div id="composerWrap" class="d-none">
+          <div class="composer" id="composer">
+            <textarea class="form-control" id="txt" rows="4" placeholder="Escribe un comentario… (pega imágenes con Ctrl+V o arrastra archivos aquí)"></textarea>
+            <div class="pending-files" id="pending"></div>
+            <div class="toolbar">
+              <input type="checkbox" class="btn-check" id="codeMode" autocomplete="off">
+              <label class="btn btn-sm btn-outline-secondary" for="codeMode" title="Modo código"><i class="bi bi-code-slash"></i> Código</label>
+              <select class="form-select form-select-sm w-auto d-none" id="lang"></select>
+              <button class="btn btn-sm btn-outline-secondary d-none" id="btnPreview" type="button"><i class="bi bi-eye"></i> Vista previa</button>
+              <button class="btn btn-sm btn-outline-secondary" id="btnAttach" type="button" title="Adjuntar imágenes o documentos"><i class="bi bi-paperclip"></i> Adjuntar</button>
+              <input type="file" id="fileInput" multiple hidden>
+              <span class="small text-body-secondary ms-auto d-none d-md-inline">Ctrl+Enter para enviar</span>
+              <button class="btn btn-sm btn-primary" id="btnSend" type="button"><i class="bi bi-send"></i> Enviar</button>
+            </div>
+          </div>
+          <div id="preview" class="mt-2"></div>
+        </div>
+        <div id="composerLogin" class="alert alert-light border d-none">
+          <i class="bi bi-lock"></i> <a href="#" onclick="TFCA.Header.openLogin();return false">Inicia sesión</a> para comentar y dar seguimiento.
+        </div>
+      </div>
+
+      <!-- Columna lateral -->
+      <div class="col-lg-4">
+        <div class="card side-card mb-3"><div class="card-body" id="boxEstado"></div></div>
+        <div class="card side-card mb-3"><div class="card-body" id="boxColab"></div></div>
+        <div class="card side-card mb-3"><div class="card-body" id="boxCheck"></div></div>
+        <div class="card side-card mb-3"><div class="card-body" id="boxInfo"></div></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+  /* =================== Detalle de ticket (MVC) =================== */
+  const { ENV, Auth, Api, UI } = TFCA;
+  const esc = UI.esc;
+  const isDone = c => c.hecho === true || c.hecho === 'TRUE' || c.hecho === 'true';
+
+  /* ---------- Modelo ---------- */
+  const Model = {
+    id: new URLSearchParams(location.search).get('id'),
+    ticket: null, entries: [], checks: [], pendingFiles: [], tlFilter: '',
+    async load() {
+      const d = await Api.get(this.id);
+      this.ticket = d.ticket;
+      this.entries = (d.seguimiento || []).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+      this.checks = (d.checklist || []).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+    },
+    assigned() { return UI.splitList(this.ticket.asignados); },
+    can() { return Auth.canManage(this.ticket); }
+  };
+
+  /* ---------- Vista ---------- */
+  const View = {
+    all() { this.head(); this.timeline(); this.estado(); this.colab(); this.check(); this.info(); document.title = `${Model.ticket.id} · Sistema Tickets TFCA`; },
+    head() {
+      const t = Model.ticket;
+      ticketHead.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <div class="t-id">${esc(t.id)}</div>
+            <h4 class="mb-2">${esc(t.titulo)}</h4>
+          </div>
+          ${Model.can() && Auth.isLogged() ? '<button class="btn btn-sm btn-outline-secondary" id="btnEdit"><i class="bi bi-pencil"></i> Editar</button>' : ''}
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.isOverdue(t) ? '<span class="badge text-bg-danger"><i class="bi bi-alarm"></i> Vencido</span>' : ''}</div>
+        <div class="tl-text">${esc(t.descripcion) || '<i class="text-body-secondary">Sin descripción</i>'}</div>
+        <div class="small text-body-secondary mt-3">${UI.avatar(t.creadoPor, 20)} Creado por <b>${esc(UI.user(t.creadoPor).name)}</b> · ${UI.fmtDate(t.creado)}</div>`;
+    },
+    timeline() {
+      const f = Model.tlFilter;
+      const list = Model.entries.filter(e => !f || (f === 'adjuntos' ? ['imagen', 'archivo'].includes(e.tipo) : e.tipo === f));
+      timeline.innerHTML = list.length ? list.map(e => UI.entryHtml(e)).join('') : '<div class="text-body-secondary small">Aún no hay seguimiento.</div>';
+      UI.highlight(timeline);
+    },
+    estado() {
+      const t = Model.ticket, logged = Auth.isLogged(), can = Model.can();
+      const col = UI.column(t);
+      const label = { sinasignar: ['Sin asignar', 'secondary'], pendiente: ['Pendiente', 'warning'], proceso: ['En proceso', 'primary'], cerrado: ['Cerrado', 'success'] }[col];
+      let btns = '';
+      if (logged && can) {
+        if (col === 'sinasignar') btns += `<button class="btn btn-primary w-100 mb-2" data-act="take"><i class="bi bi-hand-index-thumb"></i> Tomar ticket</button>`;
+        if (col === 'pendiente') btns += `<button class="btn btn-primary w-100 mb-2" data-act="proceso"><i class="bi bi-play-fill"></i> Iniciar (En proceso)</button>`;
+        if (col === 'proceso') btns += `<button class="btn btn-outline-secondary w-100 mb-2" data-act="pendiente"><i class="bi bi-pause-fill"></i> Regresar a pendiente</button>`;
+        if (col !== 'cerrado') btns += `<button class="btn btn-success w-100" data-act="close"><i class="bi bi-check2-circle"></i> Cerrar ticket</button>`;
+        else btns += `<button class="btn btn-outline-warning w-100" data-act="reopen"><i class="bi bi-arrow-counterclockwise"></i> Reabrir</button>`;
+      } else if (logged) btns = '<div class="small text-body-secondary">Solo los asignados, el creador o un admin pueden cambiar el estado.</div>';
+      boxEstado.innerHTML = `<h6 class="mb-3 d-flex justify-content-between">Estado <span class="badge text-bg-${label[1]}">${label[0]}</span></h6>${btns}
+        ${t.cerrado ? `<div class="small text-body-secondary mt-2">Cerrado ${UI.fmtDate(t.cerrado)} por ${esc(UI.user(t.cerradoPor).name)}</div>` : ''}`;
+    },
+    colab() {
+      const a = Model.assigned(), can = Model.can() && Auth.isLogged();
+      const rest = ENV.USERS.filter(u => !a.includes(u.user));
+      boxColab.innerHTML = `<h6 class="mb-3"><i class="bi bi-people"></i> Asignados / colaboradores</h6>
+        ${a.length ? a.map(u => `<div class="d-flex align-items-center gap-2 mb-2">${UI.avatar(u, 28)}<span class="flex-fill">${esc(UI.user(u).name)}</span>${can ? `<button class="btn btn-sm btn-link text-danger p-0" data-rm-user="${esc(u)}" title="Quitar"><i class="bi bi-x-lg"></i></button>` : ''}</div>`).join('') : '<div class="small text-body-secondary mb-2">Nadie asignado.</div>'}
+        ${can && rest.length ? `<div class="input-group input-group-sm mt-2"><select class="form-select" id="addUserSel">${rest.map(u => `<option value="${esc(u.user)}">${esc(u.name)}</option>`).join('')}</select><button class="btn btn-outline-primary" id="btnAddUser"><i class="bi bi-person-plus"></i> Agregar</button></div>` : ''}`;
+    },
+    check() {
+      const ch = Model.checks, done = ch.filter(isDone).length, logged = Auth.isLogged(), can = Model.can();
+      const pct = ch.length ? Math.round(done / ch.length * 100) : 0;
+      boxCheck.innerHTML = `<h6 class="mb-2 d-flex justify-content-between"><span><i class="bi bi-check2-square"></i> Checklist</span><span class="small text-body-secondary">${done}/${ch.length}</span></h6>
+        ${ch.length ? `<div class="progress progress-thin mb-2"><div class="progress-bar bg-success" style="width:${pct}%"></div></div>` : ''}
+        <div>${ch.map(c => `<div class="check-item ${isDone(c) ? 'done' : ''}">
+          <input class="form-check-input mt-0" type="checkbox" data-chk="${esc(c.id)}" ${isDone(c) ? 'checked' : ''} ${logged ? '' : 'disabled'}>
+          <span class="flex-fill small" title="${isDone(c) && c.hechoPor ? 'Hecho por ' + esc(UI.user(c.hechoPor).name) : ''}">${esc(c.texto)}</span>
+          ${logged && (can || c.autor === Auth.current().user) ? `<button class="btn btn-sm btn-link text-danger p-0 btn-del" data-del-chk="${esc(c.id)}"><i class="bi bi-trash"></i></button>` : ''}
+        </div>`).join('') || '<div class="small text-body-secondary">Sin tareas.</div>'}</div>
+        ${logged ? `<form class="input-group input-group-sm mt-2" id="frmCheck"><input class="form-control" id="newCheck" placeholder="Nueva tarea…" maxlength="200"><button class="btn btn-outline-primary"><i class="bi bi-plus-lg"></i></button></form>` : ''}`;
+    },
+    info() {
+      const t = Model.ticket, can = Model.can() && Auth.isLogged();
+      boxInfo.innerHTML = `<h6 class="mb-3"><i class="bi bi-info-circle"></i> Detalles</h6>
+        <div class="mb-2 small"><label class="form-label mb-1 text-body-secondary">Prioridad</label>
+          ${can ? `<select class="form-select form-select-sm" id="selPrio">${ENV.PRIORIDADES.map(p => `<option ${p === t.prioridad ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>` : UI.prioBadge(t.prioridad)}</div>
+        <div class="mb-2 small"><label class="form-label mb-1 text-body-secondary">Fecha límite</label>
+          ${can ? `<input type="date" class="form-control form-control-sm" id="inpLimite" value="${esc(t.fechaLimite || '')}">` : `<div>${esc(t.fechaLimite || '—')}</div>`}</div>
+        <div class="small text-body-secondary">Última actualización: ${UI.fmtDate(t.actualizado)}</div>`;
+    },
+    pending() {
+      pending.innerHTML = Model.pendingFiles.map((f, i) => `<span class="pf">${/^image\//.test(f.type) ? `<img src="${URL.createObjectURL(f)}">` : '<i class="bi bi-file-earmark"></i>'}<span class="text-truncate" style="max-width:160px">${esc(f.name || 'imagen')}</span><button type="button" class="btn-close" data-rm="${i}" style="font-size:.55rem"></button></span>`).join('');
+    }
+  };
+
+  /* ---------- Controlador ---------- */
+  const Controller = {
+    async reload() { await Model.load(); View.all(); },
+    async run(fn, okMsg) {
+      try { await fn(); if (okMsg) UI.toast(okMsg); await this.reload(); }
+      catch (e) { UI.toast(e.message, 'danger'); }
+    },
+    update(fields, msg) { return this.run(() => Api.update(Model.id, fields), msg); },
+
+    async send() {
+      const text = txt.value.trim(), isCode = codeMode.checked;
+      if (!text && !Model.pendingFiles.length) return UI.toast('Escribe algo o adjunta un archivo', 'warning');
+      if (text.length > 45000) return UI.toast('Texto demasiado largo (máx. ~45,000 caracteres). Adjúntalo como archivo.', 'warning');
+      btnSend.disabled = true; btnSend.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try {
+        if (text) await Api.addEntry({ ticketId: Model.id, tipo: isCode ? 'codigo' : 'comentario', texto: text, lenguaje: isCode ? lang.value : '' });
+        for (const f of Model.pendingFiles) {
+          const p = await UI.fileToPayload(f);
+          await Api.addEntry({ ticketId: Model.id, tipo: /^image\//.test(p.mime) ? 'imagen' : 'archivo', file: p });
+        }
+        txt.value = ''; Model.pendingFiles = []; View.pending(); preview.innerHTML = '';
+        await this.reload();
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      } catch (e) { UI.toast(e.message, 'danger'); }
+      btnSend.disabled = false; btnSend.innerHTML = '<i class="bi bi-send"></i> Enviar';
+    },
+    addFiles(list) {
+      for (const f of list) {
+        if (f.size > ENV.MAX_FILE_MB * 1048576) { UI.toast(`${f.name} supera ${ENV.MAX_FILE_MB} MB`, 'warning'); continue; }
+        Model.pendingFiles.push(f);
+      }
+      View.pending();
+    },
+    closeDialog() {
+      const pend = Model.checks.filter(c => !isDone(c)).length;
+      const { el, modal } = UI.modal('<i class="bi bi-check2-circle text-success"></i> Cerrar ticket', `
+        ${pend ? `<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle"></i> El checklist tiene <b>${pend}</b> tarea(s) sin completar.</div>` : ''}
+        <label class="form-label">Comentario de cierre (opcional)</label>
+        <textarea class="form-control" id="closeTxt" rows="3" placeholder="¿Cómo se resolvió?"></textarea>`,
+        { size: 'md', footer: '<button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-success" id="btnDoClose">Cerrar ticket</button>' });
+      el.querySelector('#btnDoClose').onclick = async () => {
+        const c = el.querySelector('#closeTxt').value.trim();
+        modal.hide();
+        await this.run(async () => {
+          if (c) await Api.addEntry({ ticketId: Model.id, tipo: 'comentario', texto: '✅ ' + c });
+          await Api.update(Model.id, { estado: 'cerrado' });
+        }, 'Ticket cerrado');
+      };
+    },
+    editDialog() {
+      const t = Model.ticket;
+      const { el, modal } = UI.modal('<i class="bi bi-pencil"></i> Editar ticket', `
+        <div class="mb-3"><label class="form-label">Título</label><input class="form-control" id="eTit" maxlength="140" value="${esc(t.titulo)}"></div>
+        <div class="mb-3"><label class="form-label">Categoría</label><select class="form-select" id="eCat">${ENV.CATEGORIAS.map(c => `<option ${c === t.categoria ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+        <div><label class="form-label">Descripción</label><textarea class="form-control" id="eDesc" rows="6">${esc(t.descripcion)}</textarea></div>`,
+        { footer: '<button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" id="btnDoEdit">Guardar</button>' });
+      el.querySelector('#btnDoEdit').onclick = () => {
+        const titulo = el.querySelector('#eTit').value.trim();
+        if (!titulo) return UI.toast('El título es obligatorio', 'warning');
+        modal.hide();
+        this.update({ titulo, categoria: el.querySelector('#eCat').value, descripcion: el.querySelector('#eDesc').value.trim() }, 'Ticket actualizado');
+      };
+    },
+    bind() {
+      const me = () => Auth.current().user;
+      // Acciones de estado
+      boxEstado.addEventListener('click', e => {
+        const b = e.target.closest('[data-act]'); if (!b) return;
+        const a = b.dataset.act;
+        if (a === 'take') this.update({ asignados: [...Model.assigned(), me()] }, 'Ticket tomado');
+        if (a === 'proceso' || a === 'pendiente') this.update({ estado: a }, 'Estado actualizado');
+        if (a === 'close') this.closeDialog();
+        if (a === 'reopen') this.update({ estado: 'pendiente' }, 'Ticket reabierto');
+      });
+      // Colaboradores
+      boxColab.addEventListener('click', e => {
+        const rm = e.target.closest('[data-rm-user]');
+        if (rm) {
+          const next = Model.assigned().filter(u => u !== rm.dataset.rmUser);
+          if (!next.length && Model.ticket.estado !== 'cerrado' && !confirm('El ticket quedará sin asignar. ¿Continuar?')) return;
+          this.update({ asignados: next }, 'Colaborador quitado');
+        }
+        if (e.target.closest('#btnAddUser')) this.update({ asignados: [...Model.assigned(), addUserSel.value] }, 'Colaborador agregado');
+      });
+      // Checklist
+      boxCheck.addEventListener('change', e => { const c = e.target.closest('[data-chk]'); if (c) this.run(() => Api.checkToggle(c.dataset.chk, c.checked)); });
+      boxCheck.addEventListener('click', e => { const d = e.target.closest('[data-del-chk]'); if (d && confirm('¿Eliminar tarea?')) this.run(() => Api.checkDelete(d.dataset.delChk)); });
+      boxCheck.addEventListener('submit', e => { e.preventDefault(); const v = newCheck.value.trim(); if (v) this.run(() => Api.checkAdd(Model.id, v)); });
+      // Detalles
+      boxInfo.addEventListener('change', e => {
+        if (e.target.id === 'selPrio') this.update({ prioridad: e.target.value }, 'Prioridad actualizada');
+        if (e.target.id === 'inpLimite') this.update({ fechaLimite: e.target.value }, 'Fecha límite actualizada');
+      });
+      ticketHead.addEventListener('click', e => { if (e.target.closest('#btnEdit')) this.editDialog(); });
+      // Filtro del timeline
+      tlFilter.addEventListener('click', e => {
+        const b = e.target.closest('[data-f]'); if (!b) return;
+        tlFilter.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        Model.tlFilter = b.dataset.f; View.timeline();
+      });
+
+      if (!Auth.isLogged()) { composerLogin.classList.remove('d-none'); return; }
+      composerWrap.classList.remove('d-none');
+      // Composer
+      lang.innerHTML = UI.LANGS.map(l => `<option ${l === 'javascript' ? 'selected' : ''}>${l}</option>`).join('');
+      codeMode.addEventListener('change', () => {
+        const on = codeMode.checked;
+        txt.classList.toggle('code-input', on); lang.classList.toggle('d-none', !on); btnPreview.classList.toggle('d-none', !on);
+        txt.placeholder = on ? 'Pega o escribe tu código aquí…' : 'Escribe un comentario… (pega imágenes con Ctrl+V o arrastra archivos aquí)';
+        preview.innerHTML = ''; txt.focus();
+      });
+      btnPreview.onclick = () => { preview.innerHTML = txt.value ? UI.codeBlock(txt.value, lang.value) : ''; UI.highlight(preview); };
+      txt.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.send(); }
+        if (e.key === 'Tab' && codeMode.checked) { e.preventDefault(); const s = txt.selectionStart; txt.setRangeText('  ', s, txt.selectionEnd, 'end'); }
+      });
+      txt.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])]; if (f.length) { e.preventDefault(); this.addFiles(f); } });
+      btnAttach.onclick = () => fileInput.click();
+      fileInput.onchange = () => { this.addFiles(fileInput.files); fileInput.value = ''; };
+      pending.addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { Model.pendingFiles.splice(+b.dataset.rm, 1); View.pending(); } });
+      ['dragenter', 'dragover'].forEach(n => composer.addEventListener(n, e => { e.preventDefault(); composer.classList.add('dragover'); }));
+      ['dragleave', 'drop'].forEach(n => composer.addEventListener(n, e => { e.preventDefault(); composer.classList.remove('dragover'); }));
+      composer.addEventListener('drop', e => this.addFiles(e.dataTransfer.files));
+      btnSend.onclick = () => this.send();
+    },
+    async init() {
+      TFCA.Header.render('');
+      if (!Model.id) { loading.remove(); errorBox.textContent = 'Falta el ID del ticket.'; errorBox.classList.remove('d-none'); return; }
+      try {
+        await Model.load();
+        loading.remove(); page.classList.remove('d-none');
+        View.all(); this.bind();
+      } catch (e) {
+        loading.remove(); errorBox.textContent = e.message; errorBox.classList.remove('d-none');
+      }
+    }
+  };
+  Controller.init();
+  </script>
+</body>
+</html>
