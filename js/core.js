@@ -120,6 +120,18 @@
         case 'checkDelete': {
           need(); d.checklist = d.checklist.filter(x => x.id !== r.id); out = { id: r.id }; break;
         }
+        case 'import': {
+          const u = need(); const ids = [];
+          (r.tickets || []).forEach(x => {
+            d.seq++; const id = 'TFCA-' + String(d.seq).padStart(4, '0'); ids.push(id);
+            const estado = Logic.ESTADOS[x.estado] ? x.estado : 'pendiente';
+            d.tickets.push({ id, titulo: x.titulo || '(sin título)', descripcion: x.descripcion || '', prioridad: x.prioridad || 'Media', categoria: x.categoria || 'Otro', estado, asignados: splitList(x.asignados).join(','), creadoPor: x.creadoPor || u, creado: x.creado || nowIso(), actualizado: x.actualizado || nowIso(), fechaLimite: x.fechaLimite || '', cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (x.cerradoPor || u) : '' });
+            (x.entries || []).forEach(e => d.seguimiento.push({ id: uid('e'), ticketId: id, tipo: e.tipo, autor: e.autor || u, texto: e.texto || '', lenguaje: e.lenguaje || '', fileId: e.fileId || '', fileName: e.fileName || '', mime: e.mime || '', url: e.url || '', fecha: e.fecha || nowIso() }));
+            log(id, u, 'importó el ticket' + (x.origen ? ' desde ' + x.origen : ''));
+            (x.checklist || []).forEach(c => d.checklist.push({ id: uid('c'), ticketId: id, texto: c.texto, hecho: !!c.hecho, autor: c.autor || u, fecha: c.fecha || nowIso(), hechoPor: c.hecho ? (c.hechoPor || u) : '' }));
+          });
+          out = { count: ids.length, ids }; break;
+        }
         default: throw new Error('Acción desconocida: ' + action);
       }
       this.save(d);
@@ -317,6 +329,150 @@
     }
   };
 
+  /* --------------------- Exportar / Importar (JSON y Trello) --------------------- */
+  const truthy = v => v === true || v === 'TRUE' || v === 'true';
+  const Transfer = {
+    async exportJson() {
+      try {
+        const d = await Api.list();
+        const out = { app: ENV.APP_NAME, format: 'tfca-export', version: 1, exportedAt: nowIso(), exportedBy: Auth.current()?.user || '', ...d };
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+        a.download = `tickets-tfca-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        UI.toast(`Exportados ${d.tickets.length} tickets`);
+      } catch (e) { UI.toast(e.message, 'danger'); }
+    },
+
+    /** Detecta el formato y devuelve tickets normalizados */
+    parse(json, { archived = false } = {}) {
+      if (Array.isArray(json.tickets)) return { format: 'Sistema Tickets TFCA', ...this.fromTfca(json) };
+      if (Array.isArray(json.cards) && Array.isArray(json.lists)) return { format: 'Trello' + (json.name ? ` · ${json.name}` : ''), ...this.fromTrello(json, archived) };
+      throw new Error('Formato no reconocido. Usa un JSON exportado de este sistema o de un tablero de Trello.');
+    },
+
+    fromTfca(d) {
+      const group = (a, k) => (a || []).reduce((m, x) => ((m[x[k]] ||= []).push(x), m), {});
+      const seg = group(d.seguimiento, 'ticketId'), chk = group(d.checklist, 'ticketId');
+      const tickets = d.tickets.map(t => ({
+        titulo: t.titulo, descripcion: t.descripcion, prioridad: t.prioridad, categoria: t.categoria, estado: t.estado,
+        asignados: splitList(t.asignados), creadoPor: t.creadoPor, creado: t.creado, actualizado: t.actualizado,
+        fechaLimite: t.fechaLimite, cerrado: t.cerrado, cerradoPor: t.cerradoPor, origen: t.id,
+        entries: (seg[t.id] || []).map(e => ({ tipo: e.tipo, autor: e.autor, texto: e.texto, lenguaje: e.lenguaje, fileId: e.fileId, fileName: e.fileName, mime: e.mime, url: e.url, fecha: e.fecha })),
+        checklist: (chk[t.id] || []).map(c => ({ texto: c.texto, hecho: truthy(c.hecho), autor: c.autor, fecha: c.fecha, hechoPor: c.hechoPor }))
+      }));
+      return { tickets, unmatched: [] };
+    },
+
+    fromTrello(b, archived) {
+      const lists = Object.fromEntries((b.lists || []).map(l => [l.id, l]));
+      const members = Object.fromEntries((b.members || []).map(m => [m.id, m]));
+      const unmatched = new Set();
+      const match = id => {
+        const m = members[id]; if (!m) return null;
+        const keys = [m.username, m.fullName].filter(Boolean).map(s => s.toLowerCase());
+        const u = ENV.USERS.find(x => keys.includes(x.user.toLowerCase()) || keys.includes(x.name.toLowerCase()));
+        if (!u) unmatched.add(m.fullName || m.username);
+        return u ? u.user : null;
+      };
+      const mName = (id, fb) => members[id]?.fullName || members[id]?.username || fb?.fullName || 'Trello';
+      const estadoOf = c => {
+        const ln = (lists[c.idList]?.name || '').toLowerCase();
+        if (c.closed || c.dueComplete || /(done|hecho|cerrad|terminad|complet|finaliz|listo|resuelt)/.test(ln)) return 'cerrado';
+        if (/(progress|proceso|doing|curso|haciendo|trabajando)/.test(ln)) return 'proceso';
+        return 'pendiente';
+      };
+      const fromId = id => { const s = parseInt(String(id).slice(0, 8), 16); return s ? new Date(s * 1000).toISOString() : nowIso(); };
+      const me = Auth.current()?.user || '';
+      const comments = {};
+      (b.actions || []).filter(a => a.type === 'commentCard' && a.data?.card?.id).forEach(a => (comments[a.data.card.id] ||= []).push(a));
+      const checks = {};
+      (b.checklists || []).forEach(cl => (checks[cl.idCard] ||= []).push(cl));
+
+      const cards = (b.cards || []).filter(c => archived || (!c.closed && !lists[c.idList]?.closed));
+      const tickets = cards.map(c => {
+        const labels = (c.labels || []).map(l => l.name).filter(Boolean);
+        const cat = ENV.CATEGORIAS.find(x => labels.some(l => l.toLowerCase() === x.toLowerCase())) || 'Otro';
+        const lj = labels.join(' ').toLowerCase();
+        const prio = /cr[ií]tic|urgent|bloque/.test(lj) ? 'Crítica' : /alta|high/.test(lj) ? 'Alta' : /baja|low/.test(lj) ? 'Baja' : 'Media';
+        const asig = (c.idMembers || []).map(match).filter(Boolean);
+        const notes = [];
+        if (labels.length) notes.push('Etiquetas Trello: ' + labels.join(', '));
+        const otherMembers = (c.idMembers || []).filter(id => !match(id)).map(id => mName(id));
+        if (otherMembers.length) notes.push('Miembros Trello: ' + otherMembers.join(', '));
+        notes.push('Lista Trello: ' + (lists[c.idList]?.name || '—'));
+        const estado = estadoOf(c);
+        const entries = (comments[c.id] || []).slice().sort((x, y) => String(x.date).localeCompare(String(y.date))).map(a => {
+          const u = match(a.idMemberCreator);
+          return { tipo: 'comentario', autor: u || me, texto: (u ? '' : `(${mName(a.idMemberCreator, a.memberCreator)} en Trello) `) + (a.data.text || ''), fecha: a.date };
+        });
+        (c.attachments || []).forEach(at => entries.push({ tipo: 'archivo', autor: me, texto: '', fileName: at.name || at.url, mime: at.mimeType || '', url: at.url, fecha: at.date || fromId(c.id) }));
+        const cls = checks[c.id] || [];
+        const checklist = cls.flatMap(cl => (cl.checkItems || []).slice().sort((x, y) => x.pos - y.pos)
+          .map(it => ({ texto: (cls.length > 1 ? `[${cl.name}] ` : '') + it.name, hecho: it.state === 'complete' })));
+        return {
+          titulo: c.name, descripcion: [c.desc, notes.join('\n')].filter(Boolean).join('\n\n'),
+          prioridad: prio, categoria: cat, estado, asignados: asig, creadoPor: me,
+          creado: fromId(c.id), actualizado: c.dateLastActivity || fromId(c.id),
+          fechaLimite: c.due ? String(c.due).slice(0, 10) : '',
+          cerrado: estado === 'cerrado' ? (c.dateLastActivity || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (asig[0] || me) : '',
+          origen: 'Trello', entries, checklist
+        };
+      });
+      return { tickets, unmatched: [...unmatched], archivedCount: (b.cards || []).length - (b.cards || []).filter(c => !c.closed && !lists[c.idList]?.closed).length };
+    },
+
+    openImport() {
+      let json = null, parsed = null;
+      const { el, modal } = UI.modal('<i class="bi bi-upload"></i> Importar tickets', `
+        <p class="small text-body-secondary mb-2">Acepta un <b>JSON exportado de este sistema</b> o el <b>JSON de un tablero de Trello</b>
+        (en Trello: Menú del tablero → Imprimir, exportar y compartir → Exportar como JSON).
+        Los tickets se agregan con IDs nuevos; no se borra nada.</p>
+        <input type="file" accept=".json,application/json" class="form-control" id="impFile">
+        <div class="form-check mt-2 d-none" id="impArchWrap"><input class="form-check-input" type="checkbox" id="impArch"><label class="form-check-label small" for="impArch">Incluir tarjetas archivadas</label></div>
+        <div id="impInfo" class="mt-3 small"></div>
+        <div class="progress mt-2 d-none" id="impProg"><div class="progress-bar" style="width:0%"></div></div>`,
+        { size: 'md', footer: '<button class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" id="btnDoImport" disabled><i class="bi bi-upload"></i> Importar</button>' });
+      const $ = s => el.querySelector(s);
+      const preview = () => {
+        try {
+          parsed = this.parse(json, { archived: $('#impArch').checked });
+          const by = parsed.tickets.reduce((m, t) => (m[t.estado] = (m[t.estado] || 0) + 1, m), {});
+          $('#impArchWrap').classList.toggle('d-none', !parsed.archivedCount);
+          $('#impInfo').innerHTML = `<div class="alert alert-light border mb-0">
+            <div><b>Formato:</b> ${esc(parsed.format)}</div>
+            <div><b>Tickets:</b> ${parsed.tickets.length} · Pendientes ${by.pendiente || 0} · En proceso ${by.proceso || 0} · Cerrados ${by.cerrado || 0}</div>
+            ${parsed.archivedCount ? `<div class="text-body-secondary">${parsed.archivedCount} tarjeta(s) archivada(s) ${$('#impArch').checked ? 'incluidas' : 'omitidas'}</div>` : ''}
+            ${parsed.unmatched.length ? `<div class="text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle"></i> Sin usuario equivalente (quedan como nota): ${esc(parsed.unmatched.join(', '))}</div>` : ''}
+          </div>`;
+          $('#btnDoImport').disabled = !parsed.tickets.length;
+        } catch (e) { parsed = null; $('#btnDoImport').disabled = true; $('#impInfo').innerHTML = `<div class="text-danger">${esc(e.message)}</div>`; }
+      };
+      $('#impFile').addEventListener('change', async ev => {
+        const f = ev.target.files[0]; if (!f) return;
+        try { json = JSON.parse(await f.text()); preview(); }
+        catch { $('#impInfo').innerHTML = '<div class="text-danger">El archivo no es un JSON válido.</div>'; $('#btnDoImport').disabled = true; }
+      });
+      $('#impArch').addEventListener('change', preview);
+      $('#btnDoImport').addEventListener('click', async () => {
+        const list = parsed.tickets, size = 20, bar = $('#impProg .progress-bar');
+        $('#btnDoImport').disabled = true; $('#impFile').disabled = true; $('#impProg').classList.remove('d-none');
+        let done = 0;
+        try {
+          for (let i = 0; i < list.length; i += size) {
+            const r = await Api.call('import', { tickets: list.slice(i, i + size) });
+            done += r.count; bar.style.width = Math.round(done / list.length * 100) + '%';
+          }
+          modal.hide(); UI.toast(`${done} tickets importados`);
+          setTimeout(() => location.reload(), 800);
+        } catch (e) {
+          $('#impInfo').insertAdjacentHTML('beforeend', `<div class="text-danger mt-2">Error tras ${done} ticket(s): ${esc(e.message)}</div>`);
+        }
+      });
+    }
+  };
+
   /* ------------------------------ Header (Vista) ------------------------------ */
   const Header = {
     render(active = '') {
@@ -333,6 +489,7 @@
           </a>
           <div class="d-flex align-items-center gap-2 order-md-last">
             ${Api.isDemo() ? '<span class="badge rounded-pill text-bg-warning d-none d-sm-inline" title="Sin conexión a Drive: los datos se guardan solo en este navegador">MODO DEMO</span>' : ''}
+            <span class="small text-body-secondary d-none d-md-inline me-1" title="Hoy"><i class="bi bi-calendar3 me-1"></i>${new Date().toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(/^./, c => c.toUpperCase())}</span>
             <button class="btn btn-sm btn-outline-secondary" id="btnTheme" title="Tema claro/oscuro"><i class="bi bi-circle-half"></i></button>
             ${s ? `
               <div class="dropdown">
@@ -341,6 +498,9 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><span class="dropdown-item-text small text-body-secondary">Sesión expira en ${daysLeft} día(s)</span></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><button class="dropdown-item" id="btnExport"><i class="bi bi-download me-1"></i> Exportar (JSON)</button></li>
+                  <li><button class="dropdown-item" id="btnImport"><i class="bi bi-upload me-1"></i> Importar (JSON / Trello)</button></li>
                   <li><hr class="dropdown-divider"></li>
                   <li><button class="dropdown-item text-danger" id="btnLogout"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button></li>
                 </ul>
@@ -358,6 +518,8 @@
       this.ensureLoginModal();
       document.getElementById('btnLogin')?.addEventListener('click', () => this.openLogin());
       document.getElementById('btnLogout')?.addEventListener('click', () => { Auth.logout(); location.reload(); });
+      document.getElementById('btnExport')?.addEventListener('click', () => Transfer.exportJson());
+      document.getElementById('btnImport')?.addEventListener('click', () => Transfer.openImport());
       document.getElementById('btnTheme').addEventListener('click', () => {
         const t = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-bs-theme', t); localStorage.setItem('tfca_theme', t);
@@ -398,5 +560,5 @@
   const savedTheme = localStorage.getItem('tfca_theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.setAttribute('data-bs-theme', savedTheme);
 
-  window.TFCA = { ENV, Auth, Api, UI, Header };
+  window.TFCA = { ENV, Auth, Api, UI, Header, Transfer };
 })();

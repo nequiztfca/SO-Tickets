@@ -171,6 +171,36 @@ const ACTIONS = {
     return { id: r.id, hecho: !!r.hecho };
   }),
 
+  /** Importación masiva (JSON de este sistema o de Trello, ya normalizado por el front) */
+  import: r => withLock_(() => {
+    const user = needUser_(r);
+    const list = r.tickets || [];
+    if (list.length > 100) throw new Error('Máximo 100 tickets por lote');
+    let max = readAll_('Tickets').reduce((m, t) => Math.max(m, parseInt(String(t.id).replace(/\D/g, ''), 10) || 0), 0);
+    const now = iso_(), T = [], S = [], C = [];
+    list.forEach(x => {
+      max++;
+      const id = CFG.ID_PREFIX + String(max).padStart(4, '0');
+      const estado = ESTADOS[x.estado] ? x.estado : 'pendiente';
+      T.push({
+        id: id, titulo: clean_(x.titulo || '(sin título)', 140), descripcion: clean_(x.descripcion, 20000),
+        prioridad: x.prioridad || 'Media', categoria: x.categoria || 'Otro', estado: estado,
+        asignados: list_(x.asignados).join(','), creadoPor: x.creadoPor || user,
+        creado: x.creado || now, actualizado: x.actualizado || now, fechaLimite: x.fechaLimite || '',
+        cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || now) : '',
+        cerradoPor: estado === 'cerrado' ? (x.cerradoPor || user) : ''
+      });
+      (x.entries || []).forEach(e => {
+        if (TIPOS.concat('sistema').indexOf(e.tipo) < 0) return;
+        S.push({ id: uid_('e'), ticketId: id, tipo: e.tipo, autor: e.autor || user, texto: clean_(e.texto, 45000), lenguaje: e.lenguaje || '', fileId: e.fileId || '', fileName: e.fileName || '', mime: e.mime || '', url: e.url || '', fecha: e.fecha || now });
+      });
+      S.push({ id: uid_('e'), ticketId: id, tipo: 'sistema', autor: user, texto: 'importó el ticket' + (x.origen ? ' desde ' + x.origen : ''), fecha: now });
+      (x.checklist || []).forEach(c => C.push({ id: uid_('c'), ticketId: id, texto: clean_(c.texto, 200), hecho: c.hecho ? 'TRUE' : 'FALSE', autor: c.autor || user, fecha: c.fecha || now, hechoPor: c.hecho ? (c.hechoPor || user) : '' }));
+    });
+    appendMany_('Tickets', T); appendMany_('Seguimiento', S); appendMany_('Checklist', C);
+    return { count: T.length, ids: T.map(t => t.id) };
+  }),
+
   checkDelete: r => withLock_(() => {
     needUser_(r);
     const sh = sheet_('Checklist');
@@ -205,13 +235,16 @@ function readAll_(name) {
       return o;
     });
 }
-function append_(name, obj) {
+function append_(name, obj) { appendMany_(name, [obj]); }
+function appendMany_(name, objs) {
+  if (!objs.length) return;
   const sh = sheet_(name), cols = SHEETS[name];
   const row = sh.getLastRow() + 1;
-  if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 200);
-  sh.getRange(row, 1, 1, cols.length)
+  const extra = row + objs.length - 1 - sh.getMaxRows();
+  if (extra > 0) sh.insertRowsAfter(sh.getMaxRows(), extra + 200);
+  sh.getRange(row, 1, objs.length, cols.length)
     .setNumberFormat('@')
-    .setValues([cols.map(c => obj[c] === undefined || obj[c] === null ? '' : String(obj[c]))]);
+    .setValues(objs.map(o => cols.map(c => o[c] === undefined || o[c] === null ? '' : String(o[c]))));
 }
 function updateRow_(name, id, patch) {
   const sh = sheet_(name), cols = SHEETS[name];

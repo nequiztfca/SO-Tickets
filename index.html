@@ -17,6 +17,15 @@
     <!-- KPIs -->
     <div class="row g-2 mb-3" id="kpis"></div>
 
+    <!-- Métricas (colapsadas) -->
+    <div class="card border-0 rounded-4 mb-3">
+      <button class="btn w-100 text-start d-flex justify-content-between align-items-center py-2 px-3 collapsed" data-bs-toggle="collapse" data-bs-target="#metrics" aria-expanded="false">
+        <span class="small fw-semibold"><i class="bi bi-bar-chart-line me-1"></i> Métricas <span class="fw-normal text-body-secondary">· según filtros</span></span>
+        <i class="bi bi-chevron-down small chev"></i>
+      </button>
+      <div class="collapse" id="metrics"><div class="card-body pt-1" id="metricsBody"></div></div>
+    </div>
+
     <!-- Filtros -->
     <div class="card border-0 rounded-4 mb-3">
       <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
@@ -103,6 +112,64 @@
           <span class="fs-3 text-${c}"><i class="bi ${i}"></i></span>
           <div><div class="num">${n}</div><div class="small text-body-secondary">${l}</div></div>
         </div></div></div>`).join('');
+    },
+    metrics(list) {
+      const isDone = c => c.hecho === true || c.hecho === 'TRUE' || c.hecho === 'true';
+      const DAY = 864e5, now = Date.now();
+      const closed = list.filter(t => t.estado === 'cerrado' && t.cerrado), open = list.filter(t => t.estado !== 'cerrado');
+      const durs = closed.map(t => (new Date(t.cerrado) - new Date(t.creado)) / DAY).filter(d => d >= 0);
+      const avg = durs.length ? (durs.reduce((a, b) => a + b, 0) / durs.length) : 0;
+      const created30 = list.filter(t => now - new Date(t.creado) < 30 * DAY).length;
+      const closed30 = closed.filter(t => now - new Date(t.cerrado) < 30 * DAY).length;
+      const allChecks = list.flatMap(t => Model.checks[t.id] || []);
+      const pctChk = allChecks.length ? Math.round(allChecks.filter(isDone).length / allChecks.length * 100) : 0;
+
+      const bar = (label, val, max, color, extra = '') => `
+        <div class="mrow"><span class="mlabel text-truncate" title="${esc(label)}">${label}</span>
+          <div class="mtrack">${[].concat(val).map((v, i) => `<div class="mfill" style="width:${max ? v / max * 100 : 0}%;background:${[].concat(color)[i]}"></div>`).join('')}</div>
+          <span class="mval">${extra || [].concat(val).reduce((a, b) => a + b, 0)}</span></div>`;
+      const block = (title, html) => `<div class="col-md-6 col-xl-3"><div class="mblock"><div class="mtitle">${title}</div>${html}</div></div>`;
+
+      // Carga por persona (abiertos / cerrados)
+      const per = ENV.USERS.map(u => {
+        const mine = list.filter(t => UI.splitList(t.asignados).includes(u.user));
+        return { u, o: mine.filter(t => t.estado !== 'cerrado').length, c: mine.filter(t => t.estado === 'cerrado').length };
+      });
+      const maxP = Math.max(1, ...per.map(p => p.o + p.c));
+      const people = per.map(p => bar(`${UI.avatar(p.u.user, 18)} ${esc(p.u.name)}`, [p.o, p.c], maxP, ['var(--col-pro)', 'var(--col-cer)'], `${p.o}<span class="text-body-secondary">/${p.c}</span>`)).join('')
+        + '<div class="mlegend"><span style="--c:var(--col-pro)">Abiertos</span><span style="--c:var(--col-cer)">Cerrados</span></div>';
+
+      const countBy = (arr, k, keys) => keys.map(x => [x, arr.filter(t => t[k] === x).length]);
+      const cats = countBy(list, 'categoria', ENV.CATEGORIAS).filter(([, n]) => n);
+      const maxC = Math.max(1, ...cats.map(([, n]) => n));
+      const prioColor = { 'Baja': '#94a3b8', 'Media': '#0dcaf0', 'Alta': '#f59e0b', 'Crítica': '#dc3545' };
+      const prios = countBy(open, 'prioridad', ENV.PRIORIDADES);
+      const maxPr = Math.max(1, ...prios.map(([, n]) => n));
+
+      // Actividad últimas 8 semanas
+      const weeks = [...Array(8)].map((_, i) => {
+        const end = now - i * 7 * DAY, start = end - 7 * DAY;
+        const inW = d => d && new Date(d) >= start && new Date(d) < end;
+        return { c: list.filter(t => inW(t.creado)).length, x: closed.filter(t => inW(t.cerrado)).length, label: new Date(start).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) };
+      }).reverse();
+      const maxW = Math.max(1, ...weeks.map(w => Math.max(w.c, w.x)));
+      const spark = `<div class="spark">${weeks.map(w => `<div class="scol" title="Semana del ${w.label}: ${w.c} creados, ${w.x} cerrados"><div class="sbar" style="height:${w.c / maxW * 100}%;background:var(--col-pen)"></div><div class="sbar" style="height:${w.x / maxW * 100}%;background:var(--col-cer)"></div></div>`).join('')}</div>
+        <div class="mlegend"><span style="--c:var(--col-pen)">Creados</span><span style="--c:var(--col-cer)">Cerrados</span><span class="ms-auto">8 semanas</span></div>`;
+
+      const stat = (v, l) => `<div class="col-6 col-md-3"><div class="mstat"><div class="fw-semibold fs-5">${v}</div><div class="small text-body-secondary">${l}</div></div></div>`;
+      document.getElementById('metricsBody').innerHTML = `
+        <div class="row g-2 mb-2">
+          ${stat(durs.length ? avg.toFixed(1) + ' d' : '—', 'Tiempo prom. de cierre')}
+          ${stat(created30, 'Creados (30 días)')}
+          ${stat(closed30, 'Cerrados (30 días)')}
+          ${stat(allChecks.length ? pctChk + '%' : '—', 'Checklist completado')}
+        </div>
+        <div class="row g-2">
+          ${block('Carga por persona', people)}
+          ${block('Por categoría', cats.length ? cats.map(([k, n]) => bar(esc(k), n, maxC, '#6366f1')).join('') : '<span class="small text-body-secondary">Sin datos</span>')}
+          ${block('Abiertos por prioridad', prios.map(([k, n]) => bar(esc(k), n, maxPr, prioColor[k])).join(''))}
+          ${block('Actividad', spark)}
+        </div>`;
     },
     card(t) {
       const coms = Model.entries(t.id, 'comentario').slice(-2);
@@ -204,7 +271,11 @@
     filters() {
       return { q: fSearch.value.trim(), user: fUser.value, prio: fPrio.value, cat: fCat.value, mine: fMine.checked };
     },
-    render() { View.kpis(); View.board(Model.filtered(this.filters())); },
+    render() {
+      const list = Model.filtered(this.filters());
+      View.kpis(); View.board(list);
+      if (document.getElementById('metrics').classList.contains('show')) View.metrics(list);
+    },
     async refresh(silent) {
       try {
         await Model.load(); this.render();
@@ -235,6 +306,11 @@
       fCat.innerHTML += ENV.CATEGORIAS.map(p => `<option>${esc(p)}</option>`).join('');
       [fSearch, fUser, fPrio, fCat, fMine].forEach(el => el.addEventListener('input', () => this.render()));
       btnRefresh.onclick = () => this.refresh();
+      // Métricas: se calculan al abrir y se recuerda si estaban abiertas
+      const mEl = document.getElementById('metrics');
+      mEl.addEventListener('show.bs.collapse', () => { View.metrics(Model.filtered(this.filters())); localStorage.setItem('tfca_metrics', '1'); });
+      mEl.addEventListener('hide.bs.collapse', () => localStorage.removeItem('tfca_metrics'));
+      if (localStorage.getItem('tfca_metrics')) { mEl.classList.add('show'); mEl.previousElementSibling.classList.remove('collapsed'); }
       if (Auth.isLogged()) { btnNew.classList.remove('d-none'); fMineWrap.classList.remove('d-none'); }
       else readOnlyMsg.classList.remove('d-none');
 

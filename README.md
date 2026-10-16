@@ -96,6 +96,16 @@ Si cambias los usuarios, actualiza también `CFG.USERS` en `Code.gs`.
 - **Arrastrar tarjetas** entre columnas (con sesión). Si el ticket no tiene asignados, se asigna a quien lo mueve.
 - Historial automático (quién cambió estado, agregó personas, etc.), filtros, búsqueda, "Solo mis tickets",
   KPIs, fechas límite con alerta de **vencido**, tema claro/oscuro y auto-actualización cada 60 s.
+- **Métricas** (sección colapsable del tablero, respeta los filtros): tiempo promedio de cierre,
+  creados/cerrados en 30 días, % de checklist, carga por persona, por categoría, por prioridad y actividad de 8 semanas.
+- **Fecha de hoy** en el header.
+- **Exportar / Importar** (menú del usuario, con sesión iniciada):
+  - Exportar descarga un `.json` con tickets, seguimiento y checklist (los adjuntos van como enlaces de Drive).
+  - Importar acepta ese mismo `.json` o el **JSON de un tablero de Trello**. Siempre agrega tickets con IDs nuevos.
+  - Trello → listas tipo *Done/Hecho* = Cerrado, *Doing/En proceso* = En proceso, el resto = Pendiente.
+    Miembros se emparejan por usuario o nombre; etiquetas definen categoría y prioridad (*Urgente/Alta/Baja*);
+    se importan descripción, fecha límite, checklists, comentarios y adjuntos (como enlace).
+    Trello solo incluye en su exportación las ~1000 acciones más recientes (comentarios antiguos pueden faltar).
 
 ---
 
