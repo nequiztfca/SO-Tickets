@@ -9,7 +9,7 @@ window.ENV = {
   // URL del Web App de Google Apps Script (termina en /exec).
   // Mientras diga "PEGA_AQUI..." el sistema funciona en MODO DEMO
   // (datos guardados solo en este navegador) para que puedas probarlo.
-  API_URL: 'PEGA_AQUI_LA_URL_DEL_WEB_APP',
+  API_URL: 'https://script.google.com/macros/s/AKfycbybuT-30foyKlw33guip4oQkueA4tzWC9PYIxi0jTIPOIy9S9IAS0DZeHYCIerzzcuQ/exec',
 
   // Debe ser IGUAL a CFG.API_KEY en Code.gs
   API_KEY: 'tfca-2026-cambia-esta-clave',
