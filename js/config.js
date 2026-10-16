@@ -25,10 +25,10 @@ window.ENV = {
   // Usuarios genéricos (5 personas). Cambia nombres y contraseñas a tu gusto.
   // role: 'admin' puede gestionar cualquier ticket.
   USERS: [
-    { user: 'usuario1', pass: 'Tfca2026!', name: 'Usuario 1', color: '#4f46e5', role: 'admin' },
-    { user: 'usuario2', pass: 'Tfca2026!', name: 'Usuario 2', color: '#0891b2', role: 'user' },
-    { user: 'usuario3', pass: 'Tfca2026!', name: 'Usuario 3', color: '#16a34a', role: 'user' },
-    { user: 'usuario4', pass: 'Tfca2026!', name: 'Usuario 4', color: '#d97706', role: 'user' },
-    { user: 'usuario5', pass: 'Tfca2026!', name: 'Usuario 5', color: '#db2777', role: 'user' }
+    { user: 'nexNekiz@',  pass: 'Tfca2026!', name: 'nekiz', color: '#4f46e5', role: 'admin' },
+    { user: 'Brandom12@', pass: 'Tfca2026!', name: 'Brandom', color: '#0891b2', role: 'user' },
+    { user: 'Edd234'    , pass: 'Tfca2026!', name: 'Edwin', color: '#16a34a', role: 'user' },
+    { user: 'nantoree:)', pass: 'Tfca2026!', name: 'Nancy', color: '#d97706', role: 'user' },
+    { user: 'usuario5'  , pass: 'Tfca2026!', name: 'Usuario 5', color: '#db2777', role: 'user' }
   ]
 };
