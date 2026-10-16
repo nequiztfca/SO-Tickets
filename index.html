@@ -36,6 +36,7 @@
         <select class="form-select form-select-sm w-auto" id="fUser"><option value="">Todas las personas</option></select>
         <select class="form-select form-select-sm w-auto" id="fPrio"><option value="">Toda prioridad</option></select>
         <select class="form-select form-select-sm w-auto" id="fCat"><option value="">Toda categoría</option></select>
+        <select class="form-select form-select-sm w-auto" id="fMod"><option value="">Todos los módulos</option></select>
         <div class="form-check form-switch ms-1 d-none" id="fMineWrap">
           <input class="form-check-input" type="checkbox" id="fMine"><label class="form-check-label small" for="fMine">Solo mis tickets</label>
         </div>
@@ -72,6 +73,7 @@
     async load() {
       const d = await Api.list();
       this.tickets = d.tickets || [];
+      UI.setModules(d.modulos);
       this.byTicket = {}; this.checks = {};
       (d.seguimiento || []).forEach(e => (this.byTicket[e.ticketId] ||= []).push(e));
       (d.checklist || []).forEach(c => (this.checks[c.ticketId] ||= []).push(c));
@@ -82,7 +84,8 @@
       const me = Auth.current()?.user;
       const q = f.q.toLowerCase();
       return this.tickets.filter(t =>
-        (!q || [t.id, t.titulo, t.descripcion].join(' ').toLowerCase().includes(q)) &&
+        (!q || [t.id, t.titulo, t.descripcion, t.modulos].join(' ').toLowerCase().includes(q)) &&
+        (!f.mod || UI.ticketMods(t).includes(f.mod)) &&
         (!f.user || UI.splitList(t.asignados).includes(f.user) || t.creadoPor === f.user) &&
         (!f.prio || t.prioridad === f.prio) &&
         (!f.cat || t.categoria === f.cat) &&
@@ -144,6 +147,8 @@
       const maxC = Math.max(1, ...cats.map(([, n]) => n));
       const prioColor = { 'Baja': '#94a3b8', 'Media': '#0dcaf0', 'Alta': '#f59e0b', 'Crítica': '#dc3545' };
       const prios = countBy(open, 'prioridad', ENV.PRIORIDADES);
+      const mods = UI.modules().map(m => [m, list.filter(t => UI.ticketMods(t).includes(m)).length]).filter(([, n]) => n);
+      const maxM = Math.max(1, ...mods.map(([, n]) => n));
       const maxPr = Math.max(1, ...prios.map(([, n]) => n));
 
       // Actividad últimas 8 semanas
@@ -167,6 +172,7 @@
         <div class="row g-2">
           ${block('Carga por persona', people)}
           ${block('Por categoría', cats.length ? cats.map(([k, n]) => bar(esc(k), n, maxC, '#6366f1')).join('') : '<span class="small text-body-secondary">Sin datos</span>')}
+          ${block('Por módulo', mods.length ? mods.map(([k, n]) => bar(esc(k), n, maxM, UI.modColor(k))).join('') : '<span class="small text-body-secondary">Sin datos</span>')}
           ${block('Abiertos por prioridad', prios.map(([k, n]) => bar(esc(k), n, maxPr, prioColor[k])).join(''))}
           ${block('Actividad', spark)}
         </div>`;
@@ -183,6 +189,7 @@
           <span class="d-flex gap-1">${UI.isOverdue(t) ? '<span class="badge text-bg-danger"><i class="bi bi-alarm"></i> Vencido</span>' : ''}${UI.prioBadge(t.prioridad)}</span>
         </div>
         <div class="t-title">${esc(t.titulo)}</div>
+        <div class="mod-list">${UI.modBadges(t)}</div>
         <div class="small text-body-secondary"><i class="bi bi-tag"></i> ${esc(t.categoria || '—')}${t.fechaLimite ? ` · <i class="bi bi-calendar-event"></i> ${esc(t.fechaLimite)}` : ''}</div>
         ${coms.map(c => `<div class="t-comment">${UI.avatar(c.autor, 20)}<span class="txt">${esc(c.texto)}</span></div>`).join('')}
         ${ch.length ? `<div class="d-flex align-items-center gap-2 mt-2"><div class="progress progress-thin flex-fill"><div class="progress-bar bg-success" style="width:${Math.round(done / ch.length * 100)}%"></div></div><span class="small text-body-secondary"><i class="bi bi-check2-square"></i> ${done}/${ch.length}</span></div>` : ''}
@@ -239,6 +246,7 @@
       const icons = { codigo: ['bi-code-slash', 'Código'], imagen: ['bi-image', 'Imágenes'], archivo: ['bi-paperclip', 'Archivos'] };
       const html = `
         <div class="d-flex flex-wrap gap-2 mb-2">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border">${esc(UI.ESTADOS[t.estado] || t.estado)}</span><span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.isOverdue(t) ? '<span class="badge text-bg-danger">Vencido</span>' : ''}</div>
+        <div class="mod-list mb-2">${UI.modBadges(t)}</div>
         <p class="tl-text">${esc(t.descripcion) || '<i class="text-body-secondary">Sin descripción</i>'}</p>
         <div class="row small g-2 mb-3">
           <div class="col-sm-6"><b>Asignados:</b> <span class="avatar-stack">${UI.avatars(t.asignados, 22) || '—'}</span> ${UI.splitList(t.asignados).map(u => esc(UI.user(u).name)).join(', ')}</div>
@@ -269,9 +277,15 @@
   /* ---------- Controlador ---------- */
   const Controller = {
     filters() {
-      return { q: fSearch.value.trim(), user: fUser.value, prio: fPrio.value, cat: fCat.value, mine: fMine.checked };
+      return { q: fSearch.value.trim(), user: fUser.value, prio: fPrio.value, cat: fCat.value, mod: fMod.value, mine: fMine.checked };
+    },
+    /** Llena el DDL de módulos conservando la selección */
+    fillModules() {
+      const cur = fMod.value;
+      fMod.innerHTML = '<option value="">Todos los módulos</option>' + UI.modules().map(m => `<option ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join('');
     },
     render() {
+      this.fillModules();
       const list = Model.filtered(this.filters());
       View.kpis(); View.board(list);
       if (document.getElementById('metrics').classList.contains('show')) View.metrics(list);
@@ -304,7 +318,7 @@
       fUser.innerHTML += ENV.USERS.map(u => `<option value="${esc(u.user)}">${esc(u.name)}</option>`).join('');
       fPrio.innerHTML += ENV.PRIORIDADES.map(p => `<option>${esc(p)}</option>`).join('');
       fCat.innerHTML += ENV.CATEGORIAS.map(p => `<option>${esc(p)}</option>`).join('');
-      [fSearch, fUser, fPrio, fCat, fMine].forEach(el => el.addEventListener('input', () => this.render()));
+      [fSearch, fUser, fPrio, fCat, fMod, fMine].forEach(el => el.addEventListener('input', () => this.render()));
       btnRefresh.onclick = () => this.refresh();
       // Métricas: se calculan al abrir y se recuerda si estaban abiertas
       const mEl = document.getElementById('metrics');
@@ -340,7 +354,7 @@
       // Auto-actualización (si la pestaña está visible y no hay modales abiertos)
       setInterval(() => { if (!document.hidden && !UI.isModalOpen()) this.refresh(true); }, ENV.REFRESH_SECONDS * 1000);
     },
-    async init() { TFCA.Header.render('tablero'); this.bind(); await this.refresh(); }
+    async init() { TFCA.Header.render('tablero', { pages: true }); this.bind(); await this.refresh(); }
   };
 
   Controller.init();

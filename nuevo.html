@@ -40,6 +40,10 @@
           <div class="col-sm-4"><label class="form-label fw-semibold">Fecha límite</label><input class="form-control" type="date" name="fechaLimite"></div>
         </div>
         <div class="mb-3">
+          <label class="form-label fw-semibold">Módulos <span class="fw-normal text-body-secondary small">(etiquetas; puedes crear nuevos)</span></label>
+          <div id="pickMods"><span class="small text-body-secondary">Cargando módulos…</span></div>
+        </div>
+        <div class="mb-3">
           <label class="form-label fw-semibold">Asignar a <span class="fw-normal text-body-secondary small">(una o varias personas, opcional)</span></label>
           <div class="user-pick" id="pickUsers"></div>
         </div>
@@ -69,7 +73,7 @@
   const esc = UI.esc;
 
   const Model = {
-    files: [],
+    files: [], picker: null,
     async save(data) {
       const t = await Api.create(data);
       for (const f of this.files) {
@@ -110,7 +114,8 @@
         prioridad: f.get('prioridad'),
         fechaLimite: f.get('fechaLimite'),
         asignados: [...pickUsers.querySelectorAll('input:checked')].map(i => i.value),
-        checklist: f.get('checklist').split('\n').map(s => s.trim()).filter(Boolean)
+        checklist: f.get('checklist').split('\n').map(s => s.trim()).filter(Boolean),
+        modulos: Model.picker ? Model.picker.get() : [UI.MOD_DEFAULT]
       };
       btnSave.disabled = true; btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
       try {
@@ -127,6 +132,8 @@
       if (!Auth.isLogged()) { needLogin.classList.remove('d-none'); return; }
       frm.classList.remove('d-none');
       View.init();
+      Api.modules().then(m => UI.setModules(m)).catch(() => UI.setModules([]))
+        .finally(() => { Model.picker = UI.modulePicker(pickMods, { selected: [UI.MOD_DEFAULT] }); });
       frm.addEventListener('submit', e => this.submit(e));
       files.addEventListener('change', () => { this.addFiles(files.files); files.value = ''; });
       pending.addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { Model.files.splice(+b.dataset.rm, 1); View.pending(); } });

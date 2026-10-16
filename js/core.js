@@ -9,6 +9,7 @@
   'use strict';
   const ENV = window.ENV;
   const SKEY = 'tfca_session';
+  const MOD_DEFAULT = (ENV.MODULOS_BASE || ['Sin Asignar'])[0];
   const DEMO_KEY = 'tfca_demo_db';
 
   /* ---------------------------- Utilidades ---------------------------- */
@@ -57,21 +58,22 @@
       catch { throw new Error('Espacio del modo demo lleno. Usa archivos más pequeños o conecta Google Drive.'); }
     },
     seed() {
+      const U = i => (ENV.USERS[i - 1] || ENV.USERS[0]).user;
       const t = (n, h) => new Date(Date.now() - h * 36e5).toISOString();
-      const d = { seq: 3, tickets: [], seguimiento: [], checklist: [] };
+      const d = { seq: 3, tickets: [], seguimiento: [], checklist: [], modulos: [] };
       d.tickets.push(
-        { id: 'TFCA-0001', titulo: 'Bienvenido al Sistema Tickets TFCA', descripcion: 'Este es un ticket de ejemplo (modo demo). Inicia sesión con usuario1 / Tfca2026! para probar.', prioridad: 'Media', categoria: 'Soporte', estado: 'proceso', asignados: 'usuario1,usuario2', creadoPor: 'usuario1', creado: t(0, 30), actualizado: t(0, 2), fechaLimite: '', cerrado: '', cerradoPor: '' },
-        { id: 'TFCA-0002', titulo: 'Revisar reporte mensual', descripcion: 'Validar cifras del reporte antes de enviarlo.', prioridad: 'Alta', categoria: 'Desarrollo', estado: 'pendiente', asignados: '', creadoPor: 'usuario3', creado: t(0, 5), actualizado: t(0, 5), fechaLimite: '', cerrado: '', cerradoPor: '' },
-        { id: 'TFCA-0003', titulo: 'Configurar impresora del área', descripcion: 'La impresora no aparece en red.', prioridad: 'Baja', categoria: 'Infraestructura', estado: 'cerrado', asignados: 'usuario4', creadoPor: 'usuario2', creado: t(0, 72), actualizado: t(0, 20), fechaLimite: '', cerrado: t(0, 20), cerradoPor: 'usuario4' }
+        { id: 'TFCA-0001', titulo: 'Bienvenido al Sistema Tickets TFCA', descripcion: 'Este es un ticket de ejemplo (modo demo). Inicia sesión con uno de los usuarios de config.js para probar.', prioridad: 'Media', categoria: 'Soporte', estado: 'proceso', asignados: U(1) + ',' + U(2), creadoPor: U(1), creado: t(0, 30), actualizado: t(0, 2), fechaLimite: '', cerrado: '', cerradoPor: '', modulos: 'Altas Masivas' },
+        { id: 'TFCA-0002', titulo: 'Revisar reporte mensual', descripcion: 'Validar cifras del reporte antes de enviarlo.', prioridad: 'Alta', categoria: 'Desarrollo', estado: 'pendiente', asignados: '', creadoPor: U(3), creado: t(0, 5), actualizado: t(0, 5), fechaLimite: '', cerrado: '', cerradoPor: '' },
+        { id: 'TFCA-0003', titulo: 'Configurar impresora del área', descripcion: 'La impresora no aparece en red.', prioridad: 'Baja', categoria: 'Infraestructura', estado: 'cerrado', asignados: U(4), creadoPor: U(2), creado: t(0, 72), actualizado: t(0, 20), fechaLimite: '', cerrado: t(0, 20), cerradoPor: U(4) }
       );
       d.seguimiento.push(
-        { id: uid('e'), ticketId: 'TFCA-0001', tipo: 'comentario', autor: 'usuario2', texto: 'Ya revisé la configuración inicial, todo bien 👍', lenguaje: '', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 3) },
-        { id: uid('e'), ticketId: 'TFCA-0001', tipo: 'codigo', autor: 'usuario1', texto: "function saludo(nombre) {\n  return `Hola ${nombre}`;\n}\nconsole.log(saludo('TFCA'));", lenguaje: 'javascript', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 2) },
-        { id: uid('e'), ticketId: 'TFCA-0003', tipo: 'comentario', autor: 'usuario4', texto: 'Se reinstaló el driver y quedó funcionando.', lenguaje: '', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 20) }
+        { id: uid('e'), ticketId: 'TFCA-0001', tipo: 'comentario', autor: U(2), texto: 'Ya revisé la configuración inicial, todo bien 👍', lenguaje: '', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 3) },
+        { id: uid('e'), ticketId: 'TFCA-0001', tipo: 'codigo', autor: U(1), texto: "function saludo(nombre) {\n  return `Hola ${nombre}`;\n}\nconsole.log(saludo('TFCA'));", lenguaje: 'javascript', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 2) },
+        { id: uid('e'), ticketId: 'TFCA-0003', tipo: 'comentario', autor: U(4), texto: 'Se reinstaló el driver y quedó funcionando.', lenguaje: '', fileId: '', fileName: '', mime: '', url: '', fecha: t(0, 20) }
       );
       d.checklist.push(
-        { id: uid('c'), ticketId: 'TFCA-0001', texto: 'Leer la guía README', hecho: true, autor: 'usuario1', fecha: t(0, 30), hechoPor: 'usuario1' },
-        { id: uid('c'), ticketId: 'TFCA-0001', texto: 'Configurar Google Apps Script', hecho: false, autor: 'usuario1', fecha: t(0, 30), hechoPor: '' }
+        { id: uid('c'), ticketId: 'TFCA-0001', texto: 'Leer la guía README', hecho: true, autor: U(1), fecha: t(0, 30), hechoPor: U(1) },
+        { id: uid('c'), ticketId: 'TFCA-0001', texto: 'Configurar Google Apps Script', hecho: false, autor: U(1), fecha: t(0, 30), hechoPor: '' }
       );
       return d;
     },
@@ -81,23 +83,32 @@
       const need = () => { if (!s) throw new Error('Inicia sesión'); return s.user; };
       const find = id => { const t = d.tickets.find(x => x.id === id); if (!t) throw new Error('Ticket no encontrado'); return t; };
       const log = (ticketId, user, texto) => d.seguimiento.push({ id: uid('e'), ticketId, tipo: 'sistema', autor: user, texto, lenguaje: '', fileId: '', fileName: '', mime: '', url: '', fecha: nowIso() });
+      d.modulos ||= [];
+      const ensureMod = n => {
+        n = String(n || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40); if (!n) return '';
+        if (n.toLowerCase() === MOD_DEFAULT.toLowerCase()) return MOD_DEFAULT;
+        const f = d.modulos.find(m => m.toLowerCase() === n.toLowerCase()); if (f) return f;
+        d.modulos.push(n); return n;
+      };
+      const mods = v => { let l = [...new Set(splitList(v).map(ensureMod).filter(Boolean))]; if (l.length > 1) l = l.filter(x => x !== MOD_DEFAULT); return (l.length ? l : [MOD_DEFAULT]).join(','); };
       let out;
       switch (action) {
-        case 'list': return JSON.parse(JSON.stringify({ tickets: d.tickets, seguimiento: d.seguimiento, checklist: d.checklist }));
+        case 'list': return JSON.parse(JSON.stringify({ tickets: d.tickets, seguimiento: d.seguimiento, checklist: d.checklist, modulos: d.modulos }));
         case 'get': {
           const t = find(r.id);
-          return JSON.parse(JSON.stringify({ ticket: t, seguimiento: d.seguimiento.filter(e => e.ticketId === t.id), checklist: d.checklist.filter(c => c.ticketId === t.id) }));
+          return JSON.parse(JSON.stringify({ ticket: t, seguimiento: d.seguimiento.filter(e => e.ticketId === t.id), checklist: d.checklist.filter(c => c.ticketId === t.id), modulos: d.modulos }));
         }
         case 'create': {
           const u = need(); d.seq++;
-          const t = { id: 'TFCA-' + String(d.seq).padStart(4, '0'), titulo: r.titulo, descripcion: r.descripcion || '', prioridad: r.prioridad || 'Media', categoria: r.categoria || 'Otro', estado: 'pendiente', asignados: splitList(r.asignados).join(','), creadoPor: u, creado: nowIso(), actualizado: nowIso(), fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: '' };
+          const t = { id: 'TFCA-' + String(d.seq).padStart(4, '0'), titulo: r.titulo, descripcion: r.descripcion || '', prioridad: r.prioridad || 'Media', categoria: r.categoria || 'Otro', estado: 'pendiente', asignados: splitList(r.asignados).join(','), creadoPor: u, creado: nowIso(), actualizado: nowIso(), fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: '', modulos: mods(r.modulos) };
           d.tickets.push(t);
           log(t.id, u, 'creó el ticket');
           (r.checklist || []).forEach(x => d.checklist.push({ id: uid('c'), ticketId: t.id, texto: x, hecho: false, autor: u, fecha: nowIso(), hechoPor: '' }));
           out = t; break;
         }
         case 'update': {
-          const u = need(); const t = find(r.id); const f = r.fields || {};
+          const u = need(); const t = find(r.id); const f = { ...(r.fields || {}) };
+          if ('modulos' in f) f.modulos = mods(f.modulos);
           Logic.applyUpdate(t, f, u, txt => log(t.id, u, txt));
           out = t; break;
         }
@@ -120,12 +131,14 @@
         case 'checkDelete': {
           need(); d.checklist = d.checklist.filter(x => x.id !== r.id); out = { id: r.id }; break;
         }
+        case 'modules': return [...d.modulos];
+        case 'moduleAdd': { need(); const n = ensureMod(r.nombre); if (!n) throw new Error('Nombre de módulo vacío'); out = { nombre: n }; break; }
         case 'import': {
           const u = need(); const ids = [];
           (r.tickets || []).forEach(x => {
             d.seq++; const id = 'TFCA-' + String(d.seq).padStart(4, '0'); ids.push(id);
             const estado = Logic.ESTADOS[x.estado] ? x.estado : 'pendiente';
-            d.tickets.push({ id, titulo: x.titulo || '(sin título)', descripcion: x.descripcion || '', prioridad: x.prioridad || 'Media', categoria: x.categoria || 'Otro', estado, asignados: splitList(x.asignados).join(','), creadoPor: x.creadoPor || u, creado: x.creado || nowIso(), actualizado: x.actualizado || nowIso(), fechaLimite: x.fechaLimite || '', cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (x.cerradoPor || u) : '' });
+            d.tickets.push({ id, titulo: x.titulo || '(sin título)', descripcion: x.descripcion || '', prioridad: x.prioridad || 'Media', categoria: x.categoria || 'Otro', estado, asignados: splitList(x.asignados).join(','), creadoPor: x.creadoPor || u, creado: x.creado || nowIso(), actualizado: x.actualizado || nowIso(), fechaLimite: x.fechaLimite || '', cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (x.cerradoPor || u) : '', modulos: mods(x.modulos) });
             (x.entries || []).forEach(e => d.seguimiento.push({ id: uid('e'), ticketId: id, tipo: e.tipo, autor: e.autor || u, texto: e.texto || '', lenguaje: e.lenguaje || '', fileId: e.fileId || '', fileName: e.fileName || '', mime: e.mime || '', url: e.url || '', fecha: e.fecha || nowIso() }));
             log(id, u, 'importó el ticket' + (x.origen ? ' desde ' + x.origen : ''));
             (x.checklist || []).forEach(c => d.checklist.push({ id: uid('c'), ticketId: id, texto: c.texto, hecho: !!c.hecho, autor: c.autor || u, fecha: c.fecha || nowIso(), hechoPor: c.hecho ? (c.hechoPor || u) : '' }));
@@ -157,6 +170,7 @@
         else log('cambió el estado a ' + this.ESTADOS[f.estado]);
         t.estado = f.estado;
       }
+      if ('modulos' in f && f.modulos !== (t.modulos || '')) { log('cambió módulos a: ' + splitList(f.modulos).join(', ')); t.modulos = f.modulos; }
       ['titulo', 'descripcion', 'prioridad', 'categoria', 'fechaLimite'].forEach(k => {
         if (k in f && f[k] !== t[k]) {
           if (k === 'prioridad') log('cambió la prioridad a ' + f[k]);
@@ -192,7 +206,9 @@
     addEntry: e => Api.call('addEntry', e),
     checkAdd: (ticketId, texto) => Api.call('checkAdd', { ticketId, texto }),
     checkToggle: (id, hecho) => Api.call('checkToggle', { id, hecho }),
-    checkDelete: id => Api.call('checkDelete', { id })
+    checkDelete: id => Api.call('checkDelete', { id }),
+    moduleAdd: nombre => Api.call('moduleAdd', { nombre }),
+    modules: () => Api.call('modules')
   };
 
   /* ------------------------------- UI helpers ------------------------------- */
@@ -210,6 +226,59 @@
       return `<span class="avatar" style="--av:${x.color};width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px" title="${esc(x.name)}">${esc(this.initials(x.name))}</span>`;
     },
     avatars(list, size) { return splitList(list).map(u => this.avatar(u, size)).join(''); },
+    /* ---- Módulos (etiquetas) ---- */
+    MOD_DEFAULT,
+    _mods: [],
+    /** Guarda la lista de módulos que devuelve el servidor (más los base de config) */
+    setModules(list) {
+      const all = [...(ENV.MODULOS_BASE || []), ...(list || [])];
+      this._mods = all.filter((m, i) => m && all.findIndex(x => x.toLowerCase() === m.toLowerCase()) === i);
+      return this._mods;
+    },
+    modules() { return this._mods.length ? this._mods : [...(ENV.MODULOS_BASE || [MOD_DEFAULT])]; },
+    ticketMods(t) { const l = splitList(t.modulos); return l.length ? l : [MOD_DEFAULT]; },
+    modColor(name) {
+      if (name === MOD_DEFAULT) return '#94a3b8';
+      let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) % 360;
+      return `hsl(${h} 65% 45%)`;
+    },
+    modBadge(name, extra = '') {
+      return `<span class="mod-badge" style="--m:${this.modColor(name)}">${extra}<i class="bi bi-tag-fill"></i>${esc(name)}</span>`;
+    },
+    modBadges(t) { return this.ticketMods(t).map(m => this.modBadge(m)).join(''); },
+    /**
+     * Selector de módulos reutilizable (chips + crear nuevo).
+     * opts: { selected:[], onChange(list), canCreate:true }
+     */
+    modulePicker(container, opts) {
+      let sel = [...(opts.selected || [MOD_DEFAULT])];
+      const draw = () => {
+        container.innerHTML = `<div class="mod-pick">${this.modules().map(m => `
+          <button type="button" class="mod-chip ${sel.includes(m) ? 'on' : ''}" style="--m:${this.modColor(m)}" data-mod="${esc(m)}">
+            <i class="bi ${sel.includes(m) ? 'bi-check-circle-fill' : 'bi-circle'}"></i>${esc(m)}</button>`).join('')}
+          ${opts.canCreate !== false ? `<span class="input-group input-group-sm mod-new"><input class="form-control" placeholder="Nuevo módulo" maxlength="40"><button type="button" class="btn btn-outline-primary" title="Crear módulo"><i class="bi bi-plus-lg"></i></button></span>` : ''}
+        </div>`;
+      };
+      const set = list => {
+        if (list.length > 1) list = list.filter(x => x !== MOD_DEFAULT);
+        sel = list.length ? list : [MOD_DEFAULT]; draw(); opts.onChange && opts.onChange([...sel]);
+      };
+      container.onclick = async e => {
+        const chip = e.target.closest('[data-mod]');
+        if (chip) { const m = chip.dataset.mod; return set(sel.includes(m) ? sel.filter(x => x !== m) : (m === MOD_DEFAULT ? [MOD_DEFAULT] : [...sel, m])); }
+        const add = e.target.closest('.mod-new button');
+        if (add) {
+          const inp = container.querySelector('.mod-new input'), v = inp.value.trim();
+          if (!v) return inp.focus();
+          add.disabled = true;
+          try { const r = await Api.moduleAdd(v); this.setModules([...this.modules(), r.nombre]); set([...sel, r.nombre]); UI.toast('Módulo "' + r.nombre + '" listo'); }
+          catch (err) { UI.toast(err.message, 'danger'); add.disabled = false; }
+        }
+      };
+      container.onkeydown = e => { if (e.key === 'Enter' && e.target.closest('.mod-new')) { e.preventDefault(); container.querySelector('.mod-new button').click(); } };
+      draw();
+      return { get: () => [...sel], set };
+    },
     prioBadge(p) { return `<span class="badge text-bg-${PRIO[p] || 'secondary'}">${esc(p || 'Media')}</span>`; },
     fmtDate(iso, withTime = true) {
       if (!iso) return '—';
@@ -360,7 +429,7 @@
       const tickets = d.tickets.map(t => ({
         titulo: t.titulo, descripcion: t.descripcion, prioridad: t.prioridad, categoria: t.categoria, estado: t.estado,
         asignados: splitList(t.asignados), creadoPor: t.creadoPor, creado: t.creado, actualizado: t.actualizado,
-        fechaLimite: t.fechaLimite, cerrado: t.cerrado, cerradoPor: t.cerradoPor, origen: t.id,
+        fechaLimite: t.fechaLimite, cerrado: t.cerrado, cerradoPor: t.cerradoPor, origen: t.id, modulos: splitList(t.modulos),
         entries: (seg[t.id] || []).map(e => ({ tipo: e.tipo, autor: e.autor, texto: e.texto, lenguaje: e.lenguaje, fileId: e.fileId, fileName: e.fileName, mime: e.mime, url: e.url, fecha: e.fecha })),
         checklist: (chk[t.id] || []).map(c => ({ texto: c.texto, hecho: truthy(c.hecho), autor: c.autor, fecha: c.fecha, hechoPor: c.hechoPor }))
       }));
@@ -398,6 +467,8 @@
         const cat = ENV.CATEGORIAS.find(x => labels.some(l => l.toLowerCase() === x.toLowerCase())) || 'Otro';
         const lj = labels.join(' ').toLowerCase();
         const prio = /cr[ií]tic|urgent|bloque/.test(lj) ? 'Crítica' : /alta|high/.test(lj) ? 'Alta' : /baja|low/.test(lj) ? 'Baja' : 'Media';
+        // Etiquetas que no son categoría ni prioridad → módulos
+        const modulos = labels.filter(l => l.toLowerCase() !== cat.toLowerCase() && !/^(cr[ií]tic\w*|urgente?|bloque\w*|alta|high|baja|low|media|medium)$/i.test(l));
         const asig = (c.idMembers || []).map(match).filter(Boolean);
         const notes = [];
         if (labels.length) notes.push('Etiquetas Trello: ' + labels.join(', '));
@@ -419,7 +490,7 @@
           creado: fromId(c.id), actualizado: c.dateLastActivity || fromId(c.id),
           fechaLimite: c.due ? String(c.due).slice(0, 10) : '',
           cerrado: estado === 'cerrado' ? (c.dateLastActivity || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (asig[0] || me) : '',
-          origen: 'Trello', entries, checklist
+          origen: 'Trello', entries, checklist, modulos
         };
       });
       return { tickets, unmatched: [...unmatched], archivedCount: (b.cards || []).length - (b.cards || []).filter(c => !c.closed && !lists[c.idList]?.closed).length };
@@ -477,7 +548,7 @@
 
   /* ------------------------------ Header (Vista) ------------------------------ */
   const Header = {
-    render(active = '') {
+    render(active = '', opts = {}) {
       const s = Auth.current();
       const host = document.getElementById('app-header') || document.body.insertBefore(document.createElement('div'), document.body.firstChild);
       const daysLeft = s ? Math.max(1, Math.ceil((s.exp - Date.now()) / 864e5)) : 0;
@@ -491,6 +562,7 @@
           </a>
           <div class="d-flex align-items-center gap-2 order-md-last">
             ${Api.isDemo() ? '<span class="badge rounded-pill text-bg-warning d-none d-sm-inline" title="Sin conexión a Drive: los datos se guardan solo en este navegador">MODO DEMO</span>' : ''}
+            ${opts.pages ? this.pagesMenu() : ''}
             <span class="small text-body-secondary d-none d-md-inline me-1" title="Hoy"><i class="bi bi-calendar3 me-1"></i>${new Date().toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(/^./, c => c.toUpperCase())}</span>
             <button class="btn btn-sm btn-outline-secondary" id="btnTheme" title="Tema claro/oscuro"><i class="bi bi-circle-half"></i></button>
             ${s ? `
@@ -527,6 +599,18 @@
         document.documentElement.setAttribute('data-bs-theme', t); localStorage.setItem('tfca_theme', t);
       });
       UI.bindGlobal();
+    },
+    /** Menú de sub-páginas (definidas en ENV.PAGINAS de config.js) */
+    pagesMenu() {
+      const pages = ENV.PAGINAS || [];
+      if (!pages.length) return '';
+      return `<div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Páginas"><i class="bi bi-grid-3x3-gap"></i><span class="d-none d-lg-inline ms-1">Páginas</span></button>
+        <ul class="dropdown-menu dropdown-menu-end pages-menu">
+          ${pages.map(p => p.estado === 'proximamente'
+            ? `<li><span class="dropdown-item disabled d-flex align-items-center gap-2"><i class="bi ${esc(p.icono || 'bi-file-earmark')}"></i><span class="flex-fill">${esc(p.titulo)}</span><span class="badge text-bg-light border fw-normal">Próximamente</span></span></li>`
+            : `<li><a class="dropdown-item d-flex align-items-center gap-2" href="${esc(p.url)}" ${p.nuevaPestana ? 'target="_blank" rel="noopener"' : ''}><i class="bi ${esc(p.icono || 'bi-file-earmark')}"></i><span class="flex-fill"><span class="d-block">${esc(p.titulo)}</span>${p.descripcion ? `<small class="text-body-secondary">${esc(p.descripcion)}</small>` : ''}</span></a></li>`).join('')}
+        </ul></div>`;
     },
     ensureLoginModal() {
       if (document.getElementById('loginModal')) return;

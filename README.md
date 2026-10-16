@@ -53,6 +53,10 @@ Lo único compartido es el header (con el botón **Login**) y la capa de datos.
 | **Tickets** | id, titulo, descripcion, prioridad, categoria, estado (`pendiente`/`proceso`/`cerrado`), asignados (`usuario1,usuario3`), creadoPor, creado, actualizado, fechaLimite, cerrado, cerradoPor |
 | **Seguimiento** | id, ticketId, tipo (`comentario`/`codigo`/`imagen`/`archivo`/`sistema`), autor, texto, lenguaje, fileId, fileName, mime, url, fecha |
 | **Checklist** | id, ticketId, texto, hecho (TRUE/FALSE), autor, fecha, hechoPor |
+| **Modulos** | nombre, creadoPor, fecha |
+
+En **Tickets** también existe la columna `modulos` (ej. `Altas Masivas,Facturación`). Si tu hoja es anterior,
+la columna y la hoja Modulos se agregan solas la primera vez que se usan.
 
 "Sin asignar" no es un estado: es cualquier ticket abierto sin personas asignadas.
 
@@ -99,6 +103,12 @@ Si cambias los usuarios, actualiza también `CFG.USERS` en `Code.gs`.
 - **Métricas** (sección colapsable del tablero, respeta los filtros): tiempo promedio de cierre,
   creados/cerrados en 30 días, % de checklist, carga por persona, por categoría, por prioridad y actividad de 8 semanas.
 - **Fecha de hoy** en el header.
+- **Módulos (etiquetas)**: cada ticket puede tener uno o varios. *Sin Asignar* es el valor por defecto y *Altas Masivas*
+  viene precargado (`MODULOS_BASE` en `config.js`). Se crean nuevos desde *Nuevo ticket* o desde el detalle del ticket
+  y se guardan en la hoja **Modulos** (se crea sola). Filtro *Todos los módulos* en el tablero y bloque en Métricas.
+- **Menú Páginas** (solo en el tablero): se configura en `PAGINAS` dentro de `config.js`.
+  Para activar una página nueva crea el archivo en `paginas/` y cambia su `estado` a `'activo'`.
+  Las páginas de `paginas/` son independientes (no usan el header ni los scripts del sistema).
 - **Exportar / Importar** (menú del usuario, con sesión iniciada):
   - Exportar descarga un `.json` con tickets, seguimiento y checklist (los adjuntos van como enlaces de Drive).
   - Importar acepta ese mismo `.json` o el **JSON de un tablero de Trello**. Siempre agrega tickets con IDs nuevos.

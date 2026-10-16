@@ -59,6 +59,7 @@
       <div class="col-lg-4">
         <div class="card side-card mb-3"><div class="card-body" id="boxEstado"></div></div>
         <div class="card side-card mb-3"><div class="card-body" id="boxColab"></div></div>
+        <div class="card side-card mb-3"><div class="card-body" id="boxMods"></div></div>
         <div class="card side-card mb-3"><div class="card-body" id="boxCheck"></div></div>
         <div class="card side-card mb-3"><div class="card-body" id="boxInfo"></div></div>
       </div>
@@ -82,6 +83,7 @@
     async load() {
       const d = await Api.get(this.id);
       this.ticket = d.ticket;
+      UI.setModules(d.modulos);
       this.entries = (d.seguimiento || []).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
       this.checks = (d.checklist || []).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
     },
@@ -91,7 +93,7 @@
 
   /* ---------- Vista ---------- */
   const View = {
-    all() { this.head(); this.timeline(); this.estado(); this.colab(); this.check(); this.info(); document.title = `${Model.ticket.id} · Sistema Tickets TFCA`; },
+    all() { this.head(); this.timeline(); this.estado(); this.colab(); this.mods(); this.check(); this.info(); document.title = `${Model.ticket.id} · Sistema Tickets TFCA`; },
     head() {
       const t = Model.ticket;
       ticketHead.innerHTML = `
@@ -102,6 +104,7 @@
           </div>
           ${Model.can() && Auth.isLogged() ? '<button class="btn btn-sm btn-outline-secondary" id="btnEdit"><i class="bi bi-pencil"></i> Editar</button>' : ''}
         </div>
+        <div class="mod-list mb-2">${UI.modBadges(t)}</div>
         <div class="d-flex flex-wrap gap-2 mb-3">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.isOverdue(t) ? '<span class="badge text-bg-danger"><i class="bi bi-alarm"></i> Vencido</span>' : ''}</div>
         <div class="tl-text">${esc(t.descripcion) || '<i class="text-body-secondary">Sin descripción</i>'}</div>
         <div class="small text-body-secondary mt-3">${UI.avatar(t.creadoPor, 20)} Creado por <b>${esc(UI.user(t.creadoPor).name)}</b> · ${UI.fmtDate(t.creado)}</div>`;
@@ -133,6 +136,15 @@
       boxColab.innerHTML = `<h6 class="mb-3"><i class="bi bi-people"></i> Asignados / colaboradores</h6>
         ${a.length ? a.map(u => `<div class="d-flex align-items-center gap-2 mb-2">${UI.avatar(u, 28)}<span class="flex-fill">${esc(UI.user(u).name)}</span>${can ? `<button class="btn btn-sm btn-link text-danger p-0" data-rm-user="${esc(u)}" title="Quitar"><i class="bi bi-x-lg"></i></button>` : ''}</div>`).join('') : '<div class="small text-body-secondary mb-2">Nadie asignado.</div>'}
         ${can && rest.length ? `<div class="input-group input-group-sm mt-2"><select class="form-select" id="addUserSel">${rest.map(u => `<option value="${esc(u.user)}">${esc(u.name)}</option>`).join('')}</select><button class="btn btn-outline-primary" id="btnAddUser"><i class="bi bi-person-plus"></i> Agregar</button></div>` : ''}`;
+    },
+    mods() {
+      const t = Model.ticket, can = Model.can() && Auth.isLogged();
+      boxMods.innerHTML = `<h6 class="mb-3"><i class="bi bi-tags"></i> Módulos</h6><div id="modHost"></div>`;
+      if (!can) { modHost.innerHTML = `<div class="mod-list">${UI.modBadges(t)}</div>`; return; }
+      UI.modulePicker(modHost, {
+        selected: UI.ticketMods(t),
+        onChange: list => Controller.update({ modulos: list }, 'Módulos actualizados')
+      });
     },
     check() {
       const ch = Model.checks, done = ch.filter(isDone).length, logged = Auth.isLogged(), can = Model.can();

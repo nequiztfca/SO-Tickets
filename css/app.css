@@ -101,3 +101,13 @@ textarea.code-input { font-family:var(--bs-font-monospace); font-size:.85rem; ta
 .spark { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
 .scol { flex: 1; height: 100%; display: flex; align-items: flex-end; gap: 1px; }
 .sbar { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; }
+
+/* Módulos (etiquetas) */
+.mod-badge { display:inline-flex; align-items:center; gap:.25rem; font-size:.7rem; font-weight:500; padding:.1rem .45rem; border-radius:20px; color:var(--m); background:color-mix(in srgb, var(--m) 14%, transparent); border:1px solid color-mix(in srgb, var(--m) 35%, transparent); white-space:nowrap; }
+.mod-badge i { font-size:.6rem; }
+.mod-list { display:flex; flex-wrap:wrap; gap:.25rem; margin:.15rem 0 .2rem; }
+.mod-pick { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+.mod-chip { display:inline-flex; align-items:center; gap:.35rem; font-size:.82rem; border:1px solid var(--bs-border-color); background:transparent; color:var(--bs-body-color); border-radius:20px; padding:.2rem .7rem; }
+.mod-chip.on { border-color:var(--m); background:color-mix(in srgb, var(--m) 14%, transparent); color:var(--m); font-weight:500; }
+.mod-new { width:auto; max-width:220px; }
+.pages-menu { min-width:260px; }

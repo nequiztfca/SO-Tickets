@@ -22,6 +22,21 @@ window.ENV = {
   CATEGORIAS: ['Soporte', 'Desarrollo', 'Bug', 'Mejora', 'Infraestructura', 'Otro'],
   PRIORIDADES: ['Baja', 'Media', 'Alta', 'Crítica'],
 
+  // Módulos (etiquetas) base. El primero es el valor por defecto.
+  // Los que se creen desde la página se guardan en la hoja "Modulos".
+  MODULOS_BASE: ['Sin Asignar', 'Altas Masivas'],
+
+  // Menú "Páginas" del tablero (solo aparece en index.html).
+  // Para agregar una página: copia un bloque, cambia los datos y pon estado: 'activo'.
+  //   icono: nombre de Bootstrap Icons (https://icons.getbootstrap.com)
+  //   estado: 'activo' | 'proximamente'
+  PAGINAS: [
+    { titulo: 'Cuadernos',            url: 'paginas/cuadernos.html',   icono: 'bi-journal-bookmark', estado: 'activo',       descripcion: 'Cuadernos del equipo' },
+    { titulo: 'Reportes',             url: 'paginas/reportes.html',    icono: 'bi-file-earmark-bar-graph', estado: 'proximamente' },
+    { titulo: 'Base de conocimiento', url: 'paginas/conocimiento.html', icono: 'bi-lightbulb',        estado: 'proximamente' },
+    { titulo: 'Calendario',           url: 'paginas/calendario.html',  icono: 'bi-calendar-week',    estado: 'proximamente' }
+  ],
+
   // Usuarios genéricos (5 personas). Cambia nombres y contraseñas a tu gusto.
   // role: 'admin' puede gestionar cualquier ticket.
   USERS: [

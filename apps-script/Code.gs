@@ -22,13 +22,15 @@ const CFG = {
   FOLDER_NAME: 'Sistema Tickets TFCA - Adjuntos',
   // Deben ser EXACTAMENTE los mismos "user" de js/config.js (respeta mayúsculas y símbolos)
   USERS: ['nexNekiz@', 'Brandom12@', 'Edd234', 'nantoree:)', 'usuario5'],
-  ID_PREFIX: 'TFCA-'
+  ID_PREFIX: 'TFCA-',
+  MODULO_DEFAULT: 'Sin Asignar'
 };
 
 const SHEETS = {
-  Tickets:     ['id', 'titulo', 'descripcion', 'prioridad', 'categoria', 'estado', 'asignados', 'creadoPor', 'creado', 'actualizado', 'fechaLimite', 'cerrado', 'cerradoPor'],
+  Tickets:     ['id', 'titulo', 'descripcion', 'prioridad', 'categoria', 'estado', 'asignados', 'creadoPor', 'creado', 'actualizado', 'fechaLimite', 'cerrado', 'cerradoPor', 'modulos'],
   Seguimiento: ['id', 'ticketId', 'tipo', 'autor', 'texto', 'lenguaje', 'fileId', 'fileName', 'mime', 'url', 'fecha'],
-  Checklist:   ['id', 'ticketId', 'texto', 'hecho', 'autor', 'fecha', 'hechoPor']
+  Checklist:   ['id', 'ticketId', 'texto', 'hecho', 'autor', 'fecha', 'hechoPor'],
+  Modulos:     ['nombre', 'creadoPor', 'fecha']
 };
 const ESTADOS = { pendiente: 'Pendiente', proceso: 'En proceso', cerrado: 'Cerrado' };
 const TIPOS = ['comentario', 'codigo', 'imagen', 'archivo'];
@@ -71,10 +73,13 @@ function doPost(e) {
 const ACTIONS = {
   ping: () => ({ pong: true }),
 
+  modules: () => readAll_('Modulos').map(m => m.nombre),
+
   list: () => ({
     tickets: readAll_('Tickets'),
     seguimiento: readAll_('Seguimiento'),
-    checklist: readAll_('Checklist').map(normCheck_)
+    checklist: readAll_('Checklist').map(normCheck_),
+    modulos: readAll_('Modulos').map(m => m.nombre)
   }),
 
   get: r => {
@@ -83,7 +88,8 @@ const ACTIONS = {
     return {
       ticket: t,
       seguimiento: readAll_('Seguimiento').filter(x => x.ticketId === r.id),
-      checklist: readAll_('Checklist').filter(x => x.ticketId === r.id).map(normCheck_)
+      checklist: readAll_('Checklist').filter(x => x.ticketId === r.id).map(normCheck_),
+      modulos: readAll_('Modulos').map(m => m.nombre)
     };
   },
 
@@ -98,7 +104,8 @@ const ACTIONS = {
       prioridad: r.prioridad || 'Media', categoria: r.categoria || 'Otro',
       estado: 'pendiente', asignados: list_(r.asignados).join(','),
       creadoPor: user, creado: now, actualizado: now,
-      fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: ''
+      fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: '',
+      modulos: mods_(r.modulos, user).join(',')
     };
     append_('Tickets', t);
     log_(t.id, user, 'creó el ticket');
@@ -125,6 +132,10 @@ const ACTIONS = {
       else if (t.estado === 'cerrado') { patch.cerrado = ''; patch.cerradoPor = ''; logs.push('reabrió el ticket (' + ESTADOS[f.estado] + ')'); }
       else logs.push('cambió el estado a ' + ESTADOS[f.estado]);
       patch.estado = f.estado;
+    }
+    if ('modulos' in f) {
+      const next = mods_(f.modulos, user).join(',');
+      if (next !== t.modulos) { patch.modulos = next; logs.push('cambió módulos a: ' + next.split(',').join(', ')); }
     }
     ['titulo', 'descripcion', 'prioridad', 'categoria', 'fechaLimite'].forEach(k => {
       if (k in f && String(f[k]) !== String(t[k])) {
@@ -189,7 +200,8 @@ const ACTIONS = {
         asignados: list_(x.asignados).join(','), creadoPor: x.creadoPor || user,
         creado: x.creado || now, actualizado: x.actualizado || now, fechaLimite: x.fechaLimite || '',
         cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || now) : '',
-        cerradoPor: estado === 'cerrado' ? (x.cerradoPor || user) : ''
+        cerradoPor: estado === 'cerrado' ? (x.cerradoPor || user) : '',
+        modulos: mods_(x.modulos, user).join(',')
       });
       (x.entries || []).forEach(e => {
         if (TIPOS.concat('sistema').indexOf(e.tipo) < 0) return;
@@ -200,6 +212,12 @@ const ACTIONS = {
     });
     appendMany_('Tickets', T); appendMany_('Seguimiento', S); appendMany_('Checklist', C);
     return { count: T.length, ids: T.map(t => t.id) };
+  }),
+
+  moduleAdd: r => withLock_(() => {
+    const user = needUser_(r);
+    const n = modName_(r.nombre);
+    return { nombre: ensureModule_(n, user) };
   }),
 
   checkDelete: r => withLock_(() => {
@@ -213,10 +231,21 @@ const ACTIONS = {
 
 /* ======================= Helpers de datos ======================= */
 function ss_() { return CFG.SPREADSHEET_ID ? SpreadsheetApp.openById(CFG.SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+const SHEET_CACHE_ = {};
+/** Devuelve la hoja; si no existe la crea, y agrega columnas nuevas al encabezado (ej. "modulos") */
 function sheet_(name) {
-  const sh = ss_().getSheetByName(name);
-  if (!sh) throw new Error('Falta la hoja "' + name + '". Ejecuta setup() en Apps Script.');
-  return sh;
+  if (SHEET_CACHE_[name]) return SHEET_CACHE_[name];
+  const ss = ss_(), cols = SHEETS[name];
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < cols.length) {
+    if (sh.getMaxColumns() < cols.length) sh.insertColumnsAfter(sh.getMaxColumns(), cols.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+  }
+  return (SHEET_CACHE_[name] = sh);
 }
 function readAll_(name) {
   const sh = sheet_(name), cols = SHEETS[name];
@@ -263,6 +292,26 @@ function updateRow_(name, id, patch) {
 }
 function log_(ticketId, user, texto) {
   append_('Seguimiento', { id: uid_('e'), ticketId: ticketId, tipo: 'sistema', autor: user, texto: texto, fecha: iso_() });
+}
+/* ---- Módulos (etiquetas) ---- */
+function modName_(v) {
+  const n = String(v || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!n) throw new Error('Nombre de módulo vacío');
+  return n;
+}
+function ensureModule_(n, user) {
+  if (n.toLowerCase() === CFG.MODULO_DEFAULT.toLowerCase()) return CFG.MODULO_DEFAULT;
+  const found = readAll_('Modulos').find(m => m.nombre.toLowerCase() === n.toLowerCase());
+  if (found) return found.nombre;
+  append_('Modulos', { nombre: n, creadoPor: user, fecha: iso_() });
+  return n;
+}
+/** Normaliza la lista de módulos de un ticket, crea los nuevos y aplica el default */
+function mods_(v, user) {
+  let list = list_(v).map(x => { try { return ensureModule_(modName_(x), user); } catch (e) { return ''; } }).filter(String);
+  list = list.filter((x, i) => list.indexOf(x) === i);
+  if (list.length > 1) list = list.filter(x => x !== CFG.MODULO_DEFAULT);
+  return list.length ? list : [CFG.MODULO_DEFAULT];
 }
 function normCheck_(c) { return Object.assign({}, c, { hecho: String(c.hecho).toUpperCase() === 'TRUE' }); }
 
