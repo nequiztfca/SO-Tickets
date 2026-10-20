@@ -103,6 +103,11 @@ Si cambias los usuarios, actualiza también `CFG.USERS` en `Code.gs`.
 - **Métricas** (sección colapsable del tablero, respeta los filtros): tiempo promedio de cierre,
   creados/cerrados en 30 días, % de checklist, carga por persona, por categoría, por prioridad y actividad de 8 semanas.
 - **Fecha de hoy** en el header.
+- **Vencimientos**: la fecha límite acepta hora opcional. Las cards muestran **Vencido** (rojo) o un **reloj rojo**
+  si vence en los próximos `DUE_SOON_DAYS` días (3 por defecto, en `config.js`).
+  Filtro *Toda fecha límite* (vencidos, por vencer, con/sin fecha) y los indicadores **Vencidos** / **Por vencer**
+  son clicables: muestran la lista y permiten **reprogramar** fecha y hora (o +1 día / +3 días / +1 semana).
+  Al hacer clic en el reloj o en "Vencido" de una card se reprograma ese ticket. Queda registrado en el historial.
 - **Módulos (etiquetas)**: cada ticket puede tener uno o varios. *Sin Asignar* es el valor por defecto y *Altas Masivas*
   viene precargado (`MODULOS_BASE` en `config.js`). Se crean nuevos desde *Nuevo ticket* o desde el detalle del ticket
   y se guardan en la hoja **Modulos** (se crea sola). Filtro *Todos los módulos* en el tablero y bloque en Métricas.

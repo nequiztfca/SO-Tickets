@@ -18,6 +18,7 @@ window.ENV = {
   CLOSED_VISIBLE: 20,     // cerrados visibles en el tablero (el resto se agrupa)
   REFRESH_SECONDS: 60,    // auto-actualización del tablero
   MAX_FILE_MB: 10,        // tamaño máximo por archivo adjunto
+  DUE_SOON_DAYS: 3,       // días antes del vencimiento para mostrar el reloj rojo en la card
 
   CATEGORIAS: ['Soporte', 'Desarrollo', 'Bug', 'Mejora', 'Infraestructura', 'Otro'],
   PRIORIDADES: ['Baja', 'Media', 'Alta', 'Crítica'],

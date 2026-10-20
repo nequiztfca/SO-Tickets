@@ -37,7 +37,8 @@
         <div class="row g-3 mb-3">
           <div class="col-sm-4"><label class="form-label fw-semibold">Categoría</label><select class="form-select" name="categoria" id="selCat"></select></div>
           <div class="col-sm-4"><label class="form-label fw-semibold">Prioridad</label><select class="form-select" name="prioridad" id="selPrio"></select></div>
-          <div class="col-sm-4"><label class="form-label fw-semibold">Fecha límite</label><input class="form-control" type="date" name="fechaLimite"></div>
+          <div class="col-sm-4"><label class="form-label fw-semibold">Fecha límite <span class="fw-normal text-body-secondary small">(hora opcional)</span></label>
+            <div class="d-flex gap-1"><input class="form-control" type="date" name="fechaLimite"><input class="form-control" type="time" name="horaLimite" style="max-width:120px"></div></div>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Módulos <span class="fw-normal text-body-secondary small">(etiquetas; puedes crear nuevos)</span></label>
@@ -112,7 +113,7 @@
         descripcion: f.get('descripcion').trim(),
         categoria: f.get('categoria'),
         prioridad: f.get('prioridad'),
-        fechaLimite: f.get('fechaLimite'),
+        fechaLimite: UI.dueJoin(f.get('fechaLimite'), f.get('horaLimite')),
         asignados: [...pickUsers.querySelectorAll('input:checked')].map(i => i.value),
         checklist: f.get('checklist').split('\n').map(s => s.trim()).filter(Boolean),
         modulos: Model.picker ? Model.picker.get() : [UI.MOD_DEFAULT]

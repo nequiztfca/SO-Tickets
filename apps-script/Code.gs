@@ -104,7 +104,7 @@ const ACTIONS = {
       prioridad: r.prioridad || 'Media', categoria: r.categoria || 'Otro',
       estado: 'pendiente', asignados: list_(r.asignados).join(','),
       creadoPor: user, creado: now, actualizado: now,
-      fechaLimite: r.fechaLimite || '', cerrado: '', cerradoPor: '',
+      fechaLimite: due_(r.fechaLimite), cerrado: '', cerradoPor: '',
       modulos: mods_(r.modulos, user).join(',')
     };
     append_('Tickets', t);
@@ -137,11 +137,15 @@ const ACTIONS = {
       const next = mods_(f.modulos, user).join(',');
       if (next !== t.modulos) { patch.modulos = next; logs.push('cambió módulos a: ' + next.split(',').join(', ')); }
     }
+    if ('fechaLimite' in f) f.fechaLimite = due_(f.fechaLimite);
     ['titulo', 'descripcion', 'prioridad', 'categoria', 'fechaLimite'].forEach(k => {
       if (k in f && String(f[k]) !== String(t[k])) {
         patch[k] = clean_(f[k], k === 'descripcion' ? 20000 : 140);
         if (k === 'prioridad') logs.push('cambió la prioridad a ' + f[k]);
-        if (k === 'fechaLimite') logs.push(f[k] ? 'fijó fecha límite ' + f[k] : 'quitó la fecha límite');
+        if (k === 'fechaLimite') {
+          const fmt = v => String(v).replace('T', ' ');
+          logs.push(!f[k] ? 'quitó la fecha límite' : t[k] ? 'reprogramó la fecha límite de ' + fmt(t[k]) + ' a ' + fmt(f[k]) : 'fijó fecha límite ' + fmt(f[k]));
+        }
         if (k === 'titulo' || k === 'descripcion') logs.indexOf('editó el ticket') < 0 && logs.push('editó el ticket');
       }
     });
@@ -198,7 +202,7 @@ const ACTIONS = {
         id: id, titulo: clean_(x.titulo || '(sin título)', 140), descripcion: clean_(x.descripcion, 20000),
         prioridad: x.prioridad || 'Media', categoria: x.categoria || 'Otro', estado: estado,
         asignados: list_(x.asignados).join(','), creadoPor: x.creadoPor || user,
-        creado: x.creado || now, actualizado: x.actualizado || now, fechaLimite: x.fechaLimite || '',
+        creado: x.creado || now, actualizado: x.actualizado || now, fechaLimite: due_(x.fechaLimite),
         cerrado: estado === 'cerrado' ? (x.cerrado || x.actualizado || now) : '',
         cerradoPor: estado === 'cerrado' ? (x.cerradoPor || user) : '',
         modulos: mods_(x.modulos, user).join(',')
@@ -257,7 +261,12 @@ function readAll_(name) {
       const o = {};
       cols.forEach((c, i) => {
         let v = row[i];
-        if (v instanceof Date) v = c === 'fechaLimite' ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : v.toISOString();
+        if (v instanceof Date) {
+          if (c === 'fechaLimite') {
+            const tz = Session.getScriptTimeZone();
+            v = Utilities.formatDate(v, tz, (v.getHours() || v.getMinutes()) ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd');
+          } else v = v.toISOString();
+        }
         v = String(v);
         if (/^'[=+\-@]/.test(v)) v = v.slice(1);
         o[c] = v;
@@ -352,6 +361,14 @@ function clean_(v, max) {
   let s = String(v == null ? '' : v);
   if (/^[=+\-@]/.test(s)) s = "'" + s; // evita fórmulas en la hoja
   return s.slice(0, max || 1000);
+}
+/** Fecha límite válida: '' | 'AAAA-MM-DD' | 'AAAA-MM-DDTHH:mm' (hora local del equipo) */
+function due_(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?/);
+  if (!m) throw new Error('Fecha límite inválida: ' + s);
+  return m[2] ? m[1] + 'T' + m[2] : m[1];
 }
 function iso_() { return new Date().toISOString(); }
 function uid_(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }

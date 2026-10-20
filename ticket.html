@@ -93,7 +93,8 @@
 
   /* ---------- Vista ---------- */
   const View = {
-    all() { this.head(); this.timeline(); this.estado(); this.colab(); this.mods(); this.check(); this.info(); document.title = `${Model.ticket.id} · Sistema Tickets TFCA`; },
+    all() { this.head(); this.timeline(); this.estado(); this.colab(); this.mods(); this.check(); this.info();
+      UI.bindDueEditor(boxInfo, (id, v) => Controller.update({ fechaLimite: v }, v ? 'Fecha límite actualizada' : 'Fecha límite quitada')); document.title = `${Model.ticket.id} · Sistema Tickets TFCA`; },
     head() {
       const t = Model.ticket;
       ticketHead.innerHTML = `
@@ -105,7 +106,7 @@
           ${Model.can() && Auth.isLogged() ? '<button class="btn btn-sm btn-outline-secondary" id="btnEdit"><i class="bi bi-pencil"></i> Editar</button>' : ''}
         </div>
         <div class="mod-list mb-2">${UI.modBadges(t)}</div>
-        <div class="d-flex flex-wrap gap-2 mb-3">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.isOverdue(t) ? '<span class="badge text-bg-danger"><i class="bi bi-alarm"></i> Vencido</span>' : ''}</div>
+        <div class="d-flex flex-wrap gap-2 mb-3">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.dueIndicator(t)}${UI.isDueSoon(t) ? `<span class="small text-danger">${esc(UI.dueRel(t))}</span>` : ''}</div>
         <div class="tl-text">${esc(t.descripcion) || '<i class="text-body-secondary">Sin descripción</i>'}</div>
         <div class="small text-body-secondary mt-3">${UI.avatar(t.creadoPor, 20)} Creado por <b>${esc(UI.user(t.creadoPor).name)}</b> · ${UI.fmtDate(t.creado)}</div>`;
     },
@@ -163,8 +164,10 @@
       boxInfo.innerHTML = `<h6 class="mb-3"><i class="bi bi-info-circle"></i> Detalles</h6>
         <div class="mb-2 small"><label class="form-label mb-1 text-body-secondary">Prioridad</label>
           ${can ? `<select class="form-select form-select-sm" id="selPrio">${ENV.PRIORIDADES.map(p => `<option ${p === t.prioridad ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>` : UI.prioBadge(t.prioridad)}</div>
-        <div class="mb-2 small"><label class="form-label mb-1 text-body-secondary">Fecha límite</label>
-          ${can ? `<input type="date" class="form-control form-control-sm" id="inpLimite" value="${esc(t.fechaLimite || '')}">` : `<div>${esc(t.fechaLimite || '—')}</div>`}</div>
+        <div class="mb-2 small"><label class="form-label mb-1 text-body-secondary d-flex justify-content-between">Fecha límite
+            ${t.fechaLimite && t.estado !== 'cerrado' ? `<span class="${UI.dueStatus(t) === 'ok' ? '' : 'text-danger fw-semibold'}">${esc(UI.dueRel(t))}</span>` : ''}</label>
+          ${UI.isOverdue(t) ? `<div class="alert alert-danger py-1 px-2 small mb-2"><i class="bi bi-alarm"></i> Vencido el ${esc(UI.fmtDue(t))}${can ? '. Reprográmalo:' : ''}</div>` : ''}
+          ${can ? UI.dueEditor(t) : `<div>${esc(UI.fmtDue(t))}</div>`}</div>
         <div class="small text-body-secondary">Última actualización: ${UI.fmtDate(t.actualizado)}</div>`;
     },
     pending() {
@@ -263,7 +266,6 @@
       // Detalles
       boxInfo.addEventListener('change', e => {
         if (e.target.id === 'selPrio') this.update({ prioridad: e.target.value }, 'Prioridad actualizada');
-        if (e.target.id === 'inpLimite') this.update({ fechaLimite: e.target.value }, 'Fecha límite actualizada');
       });
       ticketHead.addEventListener('click', e => { if (e.target.closest('#btnEdit')) this.editDialog(); });
       // Filtro del timeline

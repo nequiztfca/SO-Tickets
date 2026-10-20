@@ -111,3 +111,17 @@ textarea.code-input { font-family:var(--bs-font-monospace); font-size:.85rem; ta
 .mod-chip.on { border-color:var(--m); background:color-mix(in srgb, var(--m) 14%, transparent); color:var(--m); font-weight:500; }
 .mod-new { width:auto; max-width:220px; }
 .pages-menu { min-width:260px; }
+
+/* Vencimientos */
+.due-soon { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; color:#dc3545; background:rgba(220,53,69,.12); font-size:.75rem; animation:duePulse 2s ease-in-out infinite; }
+.due-badge[role=button], .due-soon[role=button] { cursor:pointer; }
+@keyframes duePulse { 0%,100% { box-shadow:0 0 0 0 rgba(220,53,69,.35); } 50% { box-shadow:0 0 0 4px rgba(220,53,69,0); } }
+.kpi-click { cursor:pointer; transition:transform .1s, box-shadow .1s; }
+.kpi-click:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,.08); }
+.kpi-alert-danger { box-shadow:inset 3px 0 0 #dc3545; }
+.kpi-alert-warning { box-shadow:inset 3px 0 0 #f59e0b; }
+.due-list { display:flex; flex-direction:column; gap:.6rem; }
+.due-row { border:1px solid var(--bs-border-color-translucent); border-radius:10px; padding:.6rem .75rem; }
+.due-row .min-w-0 { min-width:0; flex:1; }
+.due-edit-col { min-width:280px; }
+@media (max-width:576px) { .due-edit-col { min-width:100%; } }

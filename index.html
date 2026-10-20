@@ -37,6 +37,14 @@
         <select class="form-select form-select-sm w-auto" id="fPrio"><option value="">Toda prioridad</option></select>
         <select class="form-select form-select-sm w-auto" id="fCat"><option value="">Toda categoría</option></select>
         <select class="form-select form-select-sm w-auto" id="fMod"><option value="">Todos los módulos</option></select>
+        <select class="form-select form-select-sm w-auto" id="fDue" title="Filtrar por fecha límite">
+          <option value="">Toda fecha límite</option>
+          <option value="vencido">⏰ Vencidos</option>
+          <option value="proximo">🕒 Por vencer (próx. días)</option>
+          <option value="riesgo">Vencidos + por vencer</option>
+          <option value="con">Con fecha límite</option>
+          <option value="sin">Sin fecha límite</option>
+        </select>
         <div class="form-check form-switch ms-1 d-none" id="fMineWrap">
           <input class="form-check-input" type="checkbox" id="fMine"><label class="form-check-label small" for="fMine">Solo mis tickets</label>
         </div>
@@ -89,7 +97,22 @@
         (!f.user || UI.splitList(t.asignados).includes(f.user) || t.creadoPor === f.user) &&
         (!f.prio || t.prioridad === f.prio) &&
         (!f.cat || t.categoria === f.cat) &&
+        this.dueMatch(t, f.due) &&
         (!f.mine || UI.splitList(t.asignados).includes(me) || t.creadoPor === me));
+    },
+    dueMatch(t, due) {
+      if (!due) return true;
+      const st = UI.dueStatus(t);
+      if (due === 'vencido') return st === 'vencido';
+      if (due === 'proximo') return st === 'proximo';
+      if (due === 'riesgo') return st === 'vencido' || st === 'proximo';
+      if (due === 'con') return !!t.fechaLimite;
+      if (due === 'sin') return !t.fechaLimite;
+      return true;
+    },
+    /** Tickets abiertos vencidos o por vencer, ordenados por fecha límite */
+    dueList(kind) {
+      return this.tickets.filter(t => this.dueMatch(t, kind)).sort((a, b) => UI.dueDate(a) - UI.dueDate(b));
     },
     find(id) { return this.tickets.find(t => t.id === id); }
   };
@@ -107,13 +130,15 @@
       const k = [
         ['Abiertos', T.filter(t => t.estado !== 'cerrado').length, 'bi-folder2-open', 'primary'],
         ['Sin asignar', T.filter(t => UI.column(t) === 'sinasignar').length, 'bi-inbox', 'secondary'],
-        ['Vencidos', T.filter(t => UI.isOverdue(t)).length, 'bi-alarm', 'danger'],
+        ['Vencidos', T.filter(t => UI.isOverdue(t)).length, 'bi-alarm', 'danger', 'vencido'],
+        [`Por vencer (${ENV.DUE_SOON_DAYS || 3} días)`, T.filter(t => UI.isDueSoon(t)).length, 'bi-clock-history', 'warning', 'proximo'],
         ['Cerrados (7 días)', T.filter(t => t.estado === 'cerrado' && new Date(t.cerrado) > week).length, 'bi-check2-all', 'success']
       ];
-      document.getElementById('kpis').innerHTML = k.map(([l, n, i, c]) => `
-        <div class="col-6 col-lg-3"><div class="card kpi"><div class="card-body d-flex align-items-center gap-3 py-2">
+      document.getElementById('kpis').innerHTML = k.map(([l, n, i, c, due]) => `
+        <div class="col-6 col-md-4 col-xl"><div class="card kpi ${due ? 'kpi-click' : ''} ${due && n ? 'kpi-alert-' + c : ''}" ${due ? `data-due-kpi="${due}" role="button" title="Ver cuáles son"` : ''}><div class="card-body d-flex align-items-center gap-3 py-2">
           <span class="fs-3 text-${c}"><i class="bi ${i}"></i></span>
-          <div><div class="num">${n}</div><div class="small text-body-secondary">${l}</div></div>
+          <div class="flex-fill"><div class="num">${n}</div><div class="small text-body-secondary">${l}</div></div>
+          ${due ? '<i class="bi bi-chevron-right text-body-secondary small"></i>' : ''}
         </div></div></div>`).join('');
     },
     metrics(list) {
@@ -186,11 +211,11 @@
       <div class="tcard prio-${esc(t.prioridad)}" data-id="${esc(t.id)}" ${drag}>
         <div class="d-flex justify-content-between align-items-center gap-1">
           <span class="t-id">${esc(t.id)}</span>
-          <span class="d-flex gap-1">${UI.isOverdue(t) ? '<span class="badge text-bg-danger"><i class="bi bi-alarm"></i> Vencido</span>' : ''}${UI.prioBadge(t.prioridad)}</span>
+          <span class="d-flex gap-1 align-items-center">${UI.dueIndicator(t, { clickable: true })}${UI.prioBadge(t.prioridad)}</span>
         </div>
         <div class="t-title">${esc(t.titulo)}</div>
         <div class="mod-list">${UI.modBadges(t)}</div>
-        <div class="small text-body-secondary"><i class="bi bi-tag"></i> ${esc(t.categoria || '—')}${t.fechaLimite ? ` · <i class="bi bi-calendar-event"></i> ${esc(t.fechaLimite)}` : ''}</div>
+        <div class="small text-body-secondary"><i class="bi bi-tag"></i> ${esc(t.categoria || '—')}${t.fechaLimite ? ` · <span class="${UI.dueStatus(t) === 'vencido' || UI.dueStatus(t) === 'proximo' ? 'text-danger fw-semibold' : ''}" title="${esc(UI.dueRel(t))}"><i class="bi bi-calendar-event"></i> ${esc(UI.fmtDue(t))}</span>` : ''}</div>
         ${coms.map(c => `<div class="t-comment">${UI.avatar(c.autor, 20)}<span class="txt">${esc(c.texto)}</span></div>`).join('')}
         ${ch.length ? `<div class="d-flex align-items-center gap-2 mt-2"><div class="progress progress-thin flex-fill"><div class="progress-bar bg-success" style="width:${Math.round(done / ch.length * 100)}%"></div></div><span class="small text-body-secondary"><i class="bi bi-check2-square"></i> ${done}/${ch.length}</span></div>` : ''}
         <div class="t-foot">
@@ -245,13 +270,14 @@
       const counts = ['codigo', 'imagen', 'archivo'].map(k => [k, Model.entries(t.id, k).length]);
       const icons = { codigo: ['bi-code-slash', 'Código'], imagen: ['bi-image', 'Imágenes'], archivo: ['bi-paperclip', 'Archivos'] };
       const html = `
-        <div class="d-flex flex-wrap gap-2 mb-2">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border">${esc(UI.ESTADOS[t.estado] || t.estado)}</span><span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.isOverdue(t) ? '<span class="badge text-bg-danger">Vencido</span>' : ''}</div>
+        <div class="d-flex flex-wrap gap-2 mb-2">${UI.prioBadge(t.prioridad)}<span class="badge text-bg-light border">${esc(UI.ESTADOS[t.estado] || t.estado)}</span><span class="badge text-bg-light border"><i class="bi bi-tag"></i> ${esc(t.categoria)}</span>${UI.dueIndicator(t)}</div>
         <div class="mod-list mb-2">${UI.modBadges(t)}</div>
         <p class="tl-text">${esc(t.descripcion) || '<i class="text-body-secondary">Sin descripción</i>'}</p>
         <div class="row small g-2 mb-3">
           <div class="col-sm-6"><b>Asignados:</b> <span class="avatar-stack">${UI.avatars(t.asignados, 22) || '—'}</span> ${UI.splitList(t.asignados).map(u => esc(UI.user(u).name)).join(', ')}</div>
           <div class="col-sm-6"><b>Creado por:</b> ${esc(UI.user(t.creadoPor).name)} · ${UI.fmtDate(t.creado)}</div>
-          ${t.fechaLimite ? `<div class="col-sm-6"><b>Fecha límite:</b> ${esc(t.fechaLimite)}</div>` : ''}
+          ${t.fechaLimite ? `<div class="col-sm-6"><b>Fecha límite:</b> <span class="${UI.dueStatus(t) && UI.dueStatus(t) !== 'ok' ? 'text-danger fw-semibold' : ''}">${esc(UI.fmtDue(t))}</span>${t.estado !== 'cerrado' ? ` <span class="text-body-secondary">(${esc(UI.dueRel(t))})</span>` : ''}</div>` : ''}
+          ${Auth.isLogged() && Auth.canManage(t) && t.estado !== 'cerrado' ? `<div class="col-12"><b class="d-block mb-1"><i class="bi bi-calendar2-week"></i> ${t.fechaLimite ? 'Reprogramar fecha límite' : 'Fijar fecha límite'}</b><div style="max-width:420px">${UI.dueEditor(t)}</div></div>` : ''}
           ${t.cerrado ? `<div class="col-sm-6"><b>Cerrado:</b> ${UI.fmtDate(t.cerrado)} por ${esc(UI.user(t.cerradoPor).name)}</div>` : ''}
         </div>
         ${ch.length ? `<h6><i class="bi bi-check2-square"></i> Checklist</h6><div class="mb-3">${ch.map(c => { const d = c.hecho === true || c.hecho === 'TRUE' || c.hecho === 'true'; return `<div class="check-item ${d ? 'done' : ''}"><i class="bi ${d ? 'bi-check-square-fill text-success' : 'bi-square'}"></i><span>${esc(c.texto)}</span></div>`; }).join('')}</div>` : ''}
@@ -261,7 +287,39 @@
       const footer = Auth.isLogged()
         ? `<a class="btn btn-primary" href="ticket.html?id=${encodeURIComponent(t.id)}"><i class="bi bi-box-arrow-up-right"></i> Abrir y dar seguimiento</a>`
         : `<button class="btn btn-outline-primary" onclick="TFCA.Header.openLogin()"><i class="bi bi-box-arrow-in-right"></i> Inicia sesión para dar seguimiento</button>`;
-      UI.modal(`<span class="t-id me-2">${esc(t.id)}</span>${esc(t.titulo)}`, html, { footer });
+      const { el } = UI.modal(`<span class="t-id me-2">${esc(t.id)}</span>${esc(t.titulo)}`, html, { footer });
+      UI.bindDueEditor(el, (id, v) => Controller.saveDue(id, v, () => View.detail(Model.find(id))));
+    },
+    /** Modal: lista de tickets vencidos / por vencer con opción de reprogramar */
+    dueModal(kind, onlyId) {
+      const titles = {
+        vencido: '<i class="bi bi-alarm text-danger"></i> Tickets vencidos',
+        proximo: `<i class="bi bi-clock-history text-warning"></i> Por vencer (próximos ${ENV.DUE_SOON_DAYS || 3} días)`,
+        uno: '<i class="bi bi-calendar2-week"></i> Reprogramar fecha límite'
+      };
+      const list = onlyId ? [Model.find(onlyId)].filter(Boolean) : Model.dueList(kind);
+      const logged = Auth.isLogged();
+      const rows = list.map(t => {
+        const can = logged && Auth.canManage(t);
+        const st = UI.dueStatus(t);
+        return `<div class="due-row">
+          <div class="d-flex justify-content-between gap-2 flex-wrap">
+            <div class="min-w-0">
+              <a href="#" class="t-id text-decoration-none" data-open="${esc(t.id)}">${esc(t.id)}</a> ${UI.prioBadge(t.prioridad)}
+              <div class="fw-semibold text-truncate">${esc(t.titulo)}</div>
+              <div class="small"><span class="${st === 'vencido' || st === 'proximo' ? 'text-danger' : 'text-body-secondary'}"><i class="bi ${st === 'vencido' ? 'bi-alarm' : 'bi-clock'}"></i> ${esc(UI.fmtDue(t))} · ${esc(UI.dueRel(t))}</span>
+                <span class="avatar-stack ms-2">${UI.avatars(t.asignados, 20) || '<span class="text-body-secondary">Sin asignar</span>'}</span></div>
+            </div>
+            <div class="due-edit-col">${can ? UI.dueEditor(t, { compact: true }) : `<span class="small text-body-secondary">${logged ? 'Solo asignados, creador o admin pueden reprogramar' : 'Inicia sesión para reprogramar'}</span>`}</div>
+          </div>
+        </div>`;
+      }).join('');
+      const empty = `<div class="text-center text-body-secondary py-4"><i class="bi bi-emoji-smile fs-3"></i><div>No hay tickets ${kind === 'vencido' ? 'vencidos' : 'por vencer'}.</div></div>`;
+      const footer = onlyId ? '' : `<button class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnDueFilter"><i class="bi bi-funnel"></i> Ver solo estos en el tablero</button>`;
+      const { el } = UI.modal(onlyId ? titles.uno : titles[kind], list.length ? `<div class="due-list">${rows}</div>` : empty, { size: 'lg', footer: list.length ? footer : '' });
+      UI.bindDueEditor(el, (id, v) => Controller.saveDue(id, v, () => { if (onlyId) bootstrap.Modal.getInstance(el)?.hide(); else View.dueModal(kind); }));
+      el.querySelectorAll('[data-open]').forEach(a => a.onclick = e => { e.preventDefault(); location.href = 'ticket.html?id=' + encodeURIComponent(a.dataset.open); });
+      const bf = el.querySelector('#btnDueFilter'); if (bf) bf.onclick = () => { fDue.value = kind; Controller.render(); };
     },
     /** Modal con código, imágenes o archivos de un ticket */
     attachments(t, tipo) {
@@ -277,7 +335,7 @@
   /* ---------- Controlador ---------- */
   const Controller = {
     filters() {
-      return { q: fSearch.value.trim(), user: fUser.value, prio: fPrio.value, cat: fCat.value, mod: fMod.value, mine: fMine.checked };
+      return { q: fSearch.value.trim(), user: fUser.value, prio: fPrio.value, cat: fCat.value, mod: fMod.value, due: fDue.value, mine: fMine.checked };
     },
     /** Llena el DDL de módulos conservando la selección */
     fillModules() {
@@ -297,6 +355,15 @@
       } catch (e) {
         if (!silent) document.getElementById('board').innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1"><i class="bi bi-exclamation-triangle"></i> ${esc(e.message)}</div>`;
       }
+    },
+    /** Guarda la nueva fecha límite y vuelve a pintar */
+    async saveDue(id, value, after) {
+      try {
+        await Api.update(id, { fechaLimite: value });
+        UI.toast(value ? `${id}: fecha límite → ${UI.fmtDue({ fechaLimite: value })}` : `${id}: fecha límite quitada`);
+        await this.refresh();
+        after && after();
+      } catch (e) { UI.toast(e.message, 'danger'); }
     },
     async move(id, col) {
       const t = Model.find(id); const me = Auth.current();
@@ -318,7 +385,7 @@
       fUser.innerHTML += ENV.USERS.map(u => `<option value="${esc(u.user)}">${esc(u.name)}</option>`).join('');
       fPrio.innerHTML += ENV.PRIORIDADES.map(p => `<option>${esc(p)}</option>`).join('');
       fCat.innerHTML += ENV.CATEGORIAS.map(p => `<option>${esc(p)}</option>`).join('');
-      [fSearch, fUser, fPrio, fCat, fMod, fMine].forEach(el => el.addEventListener('input', () => this.render()));
+      [fSearch, fUser, fPrio, fCat, fMod, fDue, fMine].forEach(el => el.addEventListener('input', () => this.render()));
       btnRefresh.onclick = () => this.refresh();
       // Métricas: se calculan al abrir y se recuerda si estaban abiertas
       const mEl = document.getElementById('metrics');
@@ -328,10 +395,16 @@
       if (Auth.isLogged()) { btnNew.classList.remove('d-none'); fMineWrap.classList.remove('d-none'); }
       else readOnlyMsg.classList.remove('d-none');
 
+      // KPIs Vencidos / Por vencer → lista
+      document.getElementById('kpis').addEventListener('click', ev => {
+        const k = ev.target.closest('[data-due-kpi]'); if (k) View.dueModal(k.dataset.dueKpi);
+      });
       const board = document.getElementById('board');
       // Clicks: iconos → modal de adjuntos; tarjeta → detalle
       board.addEventListener('click', ev => {
         const show = ev.target.closest('[data-show]');
+        const due = ev.target.closest('[data-due]');
+        if (due) { ev.stopPropagation(); return View.dueModal(null, due.dataset.due); }
         const card = ev.target.closest('[data-id]');
         if (!card) return;
         const t = Model.find(card.dataset.id); if (!t) return;

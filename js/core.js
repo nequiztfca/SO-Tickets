@@ -59,11 +59,12 @@
     },
     seed() {
       const U = i => (ENV.USERS[i - 1] || ENV.USERS[0]).user;
+      const dueIn = h => { const d = new Date(Date.now() + h * 36e5); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:00`; };
       const t = (n, h) => new Date(Date.now() - h * 36e5).toISOString();
       const d = { seq: 3, tickets: [], seguimiento: [], checklist: [], modulos: [] };
       d.tickets.push(
-        { id: 'TFCA-0001', titulo: 'Bienvenido al Sistema Tickets TFCA', descripcion: 'Este es un ticket de ejemplo (modo demo). Inicia sesión con uno de los usuarios de config.js para probar.', prioridad: 'Media', categoria: 'Soporte', estado: 'proceso', asignados: U(1) + ',' + U(2), creadoPor: U(1), creado: t(0, 30), actualizado: t(0, 2), fechaLimite: '', cerrado: '', cerradoPor: '', modulos: 'Altas Masivas' },
-        { id: 'TFCA-0002', titulo: 'Revisar reporte mensual', descripcion: 'Validar cifras del reporte antes de enviarlo.', prioridad: 'Alta', categoria: 'Desarrollo', estado: 'pendiente', asignados: '', creadoPor: U(3), creado: t(0, 5), actualizado: t(0, 5), fechaLimite: '', cerrado: '', cerradoPor: '' },
+        { id: 'TFCA-0001', titulo: 'Bienvenido al Sistema Tickets TFCA', descripcion: 'Este es un ticket de ejemplo (modo demo). Inicia sesión con uno de los usuarios de config.js para probar.', prioridad: 'Media', categoria: 'Soporte', estado: 'proceso', asignados: U(1) + ',' + U(2), creadoPor: U(1), creado: t(0, 30), actualizado: t(0, 2), fechaLimite: dueIn(-26), cerrado: '', cerradoPor: '', modulos: 'Altas Masivas' },
+        { id: 'TFCA-0002', titulo: 'Revisar reporte mensual', descripcion: 'Validar cifras del reporte antes de enviarlo.', prioridad: 'Alta', categoria: 'Desarrollo', estado: 'pendiente', asignados: '', creadoPor: U(3), creado: t(0, 5), actualizado: t(0, 5), fechaLimite: dueIn(40), cerrado: '', cerradoPor: '' },
         { id: 'TFCA-0003', titulo: 'Configurar impresora del área', descripcion: 'La impresora no aparece en red.', prioridad: 'Baja', categoria: 'Infraestructura', estado: 'cerrado', asignados: U(4), creadoPor: U(2), creado: t(0, 72), actualizado: t(0, 20), fechaLimite: '', cerrado: t(0, 20), cerradoPor: U(4) }
       );
       d.seguimiento.push(
@@ -174,7 +175,10 @@
       ['titulo', 'descripcion', 'prioridad', 'categoria', 'fechaLimite'].forEach(k => {
         if (k in f && f[k] !== t[k]) {
           if (k === 'prioridad') log('cambió la prioridad a ' + f[k]);
-          if (k === 'fechaLimite') log(f[k] ? 'fijó fecha límite ' + f[k] : 'quitó la fecha límite');
+          if (k === 'fechaLimite') {
+            const fmt = v => String(v).replace('T', ' ');
+            log(!f[k] ? 'quitó la fecha límite' : t[k] ? `reprogramó la fecha límite de ${fmt(t[k])} a ${fmt(f[k])}` : 'fijó fecha límite ' + fmt(f[k]));
+          }
           t[k] = f[k];
         }
       });
@@ -294,9 +298,85 @@
       if (s < 86400 * 30) return `hace ${Math.floor(s / 86400)} d`;
       return this.fmtDate(iso, false);
     },
-    isOverdue(t) {
-      if (!t.fechaLimite || t.estado === 'cerrado') return false;
-      return new Date(t.fechaLimite + 'T23:59:59') < new Date();
+    /* ---- Fecha límite (formato 'AAAA-MM-DD' o 'AAAA-MM-DDTHH:mm', hora local) ---- */
+    dueDate(t) {
+      const v = String(t.fechaLimite || '').trim();
+      if (!v) return null;
+      const d = new Date(v.length <= 10 ? v + 'T23:59:59' : v);
+      return isNaN(d) ? null : d;
+    },
+    /** 'vencido' | 'proximo' (dentro de ENV.DUE_SOON_DAYS) | 'ok' | null (sin fecha o cerrado) */
+    dueStatus(t) {
+      const d = this.dueDate(t);
+      if (!d || t.estado === 'cerrado') return null;
+      const diff = d - Date.now();
+      if (diff < 0) return 'vencido';
+      return diff <= (ENV.DUE_SOON_DAYS || 3) * 864e5 ? 'proximo' : 'ok';
+    },
+    isOverdue(t) { return this.dueStatus(t) === 'vencido'; },
+    isDueSoon(t) { return this.dueStatus(t) === 'proximo'; },
+    fmtDue(t) {
+      const d = this.dueDate(t); if (!d) return '—';
+      const hasTime = String(t.fechaLimite).length > 10;
+      return d.toLocaleString('es-MX', hasTime ? { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { day: '2-digit', month: 'short', year: 'numeric' });
+    },
+    /** Texto relativo: "vence en 5 h", "venció hace 2 d" */
+    dueRel(t) {
+      const d = this.dueDate(t); if (!d) return '';
+      const ms = d - Date.now(), a = Math.abs(ms);
+      const txt = a < 36e5 ? Math.max(1, Math.round(a / 6e4)) + ' min' : a < 864e5 ? Math.round(a / 36e5) + ' h' : Math.round(a / 864e5) + ' d';
+      return ms < 0 ? 'venció hace ' + txt : 'vence en ' + txt;
+    },
+    /** Indicador para cards: badge "Vencido" o reloj rojo si está próximo a vencer */
+    dueIndicator(t, { clickable = false } = {}) {
+      const st = this.dueStatus(t);
+      const attr = clickable ? `data-due="${esc(t.id)}" role="button"` : '';
+      if (st === 'vencido') return `<span class="badge text-bg-danger due-badge" ${attr} title="${esc(this.dueRel(t))} · ${esc(this.fmtDue(t))}"><i class="bi bi-alarm"></i> Vencido</span>`;
+      if (st === 'proximo') return `<span class="due-soon" ${attr} title="${esc(this.dueRel(t))} · ${esc(this.fmtDue(t))}"><i class="bi bi-clock-fill"></i></span>`;
+      return '';
+    },
+    /** Separa fechaLimite en { date, time } para los inputs */
+    dueParts(v) { v = String(v || ''); return { date: v.slice(0, 10), time: v.length > 10 ? v.slice(11, 16) : '' }; },
+    dueJoin(date, time) { return date ? (time ? `${date}T${time}` : date) : ''; },
+    /** Fecha (AAAA-MM-DD) local de hoy + n días */
+    isoDay(n = 0) { const d = new Date(Date.now() + n * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
+    /**
+     * Editor de fecha límite (fecha + hora opcional + atajos).
+     * Devuelve HTML; usar UI.bindDueEditor(root, onSave) para conectarlo.
+     */
+    dueEditor(t, { compact = false } = {}) {
+      const p = this.dueParts(t.fechaLimite);
+      return `<div class="due-editor" data-ticket="${esc(t.id)}">
+        <div class="d-flex gap-1">
+          <input type="date" class="form-control form-control-sm" data-f="date" value="${esc(p.date)}">
+          <input type="time" class="form-control form-control-sm" data-f="time" value="${esc(p.time)}" style="max-width:${compact ? 110 : 120}px" title="Hora (opcional)">
+          <button type="button" class="btn btn-sm btn-primary" data-due-save title="Guardar"><i class="bi bi-check-lg"></i></button>
+        </div>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          ${[[1, '+1 día'], [3, '+3 días'], [7, '+1 semana']].map(([n, l]) => `<button type="button" class="btn btn-sm btn-light border py-0 px-2 small" data-due-add="${n}">${l}</button>`).join('')}
+          ${t.fechaLimite ? '<button type="button" class="btn btn-sm btn-link text-danger py-0 px-1 small" data-due-clear>Quitar</button>' : ''}
+        </div>
+      </div>`;
+    },
+    /** Conecta todos los .due-editor dentro de root. onSave(ticketId, nuevoValor) debe devolver una promesa */
+    bindDueEditor(root, onSave) {
+      root.querySelectorAll('.due-editor').forEach(ed => {
+        const $ = s => ed.querySelector(s), id = ed.dataset.ticket;
+        const save = async v => {
+          ed.querySelectorAll('button,input').forEach(x => x.disabled = true);
+          try { await onSave(id, v); } finally { ed.querySelectorAll('button,input').forEach(x => x.disabled = false); }
+        };
+        $('[data-due-save]').onclick = () => {
+          const date = $('[data-f=date]').value, time = $('[data-f=time]').value;
+          if (!date) return UI.toast('Elige una fecha (la hora es opcional)', 'warning');
+          save(UI.dueJoin(date, time));
+        };
+        ed.querySelectorAll('[data-due-add]').forEach(b => b.onclick = () => {
+          // Desde hoy + n días, conservando la hora que tenga capturada
+          save(UI.dueJoin(UI.isoDay(+b.dataset.dueAdd), $('[data-f=time]').value));
+        });
+        const clr = $('[data-due-clear]'); if (clr) clr.onclick = () => save('');
+      });
     },
     /** Columna del tablero a la que pertenece un ticket */
     column(t) {
@@ -326,7 +406,9 @@
       el.querySelector('.modal-title').innerHTML = title;
       el.querySelector('.modal-body').innerHTML = html;
       const f = el.querySelector('.modal-footer'); f.innerHTML = footer; f.classList.toggle('d-none', !footer);
+      const wasOpen = el.classList.contains('show');
       const m = bootstrap.Modal.getOrCreateInstance(el); m.show();
+      if (wasOpen) el.focus(); // al re-pintar un modal abierto, conserva Esc para cerrar
       this.highlight(el);
       return { el, modal: m };
     },
@@ -488,7 +570,7 @@
           titulo: c.name, descripcion: [c.desc, notes.join('\n')].filter(Boolean).join('\n\n'),
           prioridad: prio, categoria: cat, estado, asignados: asig, creadoPor: me,
           creado: fromId(c.id), actualizado: c.dateLastActivity || fromId(c.id),
-          fechaLimite: c.due ? String(c.due).slice(0, 10) : '',
+          fechaLimite: c.due ? (() => { const d = new Date(c.due); return isNaN(d) ? '' : UI.dueJoin(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`); })() : '',
           cerrado: estado === 'cerrado' ? (c.dateLastActivity || nowIso()) : '', cerradoPor: estado === 'cerrado' ? (asig[0] || me) : '',
           origen: 'Trello', entries, checklist, modulos
         };
