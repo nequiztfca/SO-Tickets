@@ -161,24 +161,30 @@
 <div id="toast"></div>
 <input type="file" id="fileImport" accept=".json,application/json" hidden>
 
-<!-- Credenciales y URL del Apps Script (mismo archivo que usa el sistema de tickets).
-     Solo se lee window.ENV; NO se carga core.js ni el menú. -->
+<!-- config.js del sistema de tickets: de aquí se leen la sesión (USERS),
+     TABLERO_API_URL y TABLERO_API_KEY. NO se carga core.js ni el menú. -->
 <script src="../js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 /* =====================================================================
    MODO DE TRABAJO (automático)
-   - Si ENV.API_URL es una URL de Apps Script (termina en /exec) → DRIVE:
-       carga de la hoja al abrir y guarda solo cada cambio.
+   El tablero usa SU PROPIO Apps Script y SU PROPIA hoja (no el de tickets).
+   - URL: ENV.TABLERO_API_URL (config.js); si no existe, TABLERO_API_URL_DEFAULT.
+   - Clave: ENV.TABLERO_API_KEY (config.js) = CFG.API_KEY del Code.gs del tablero.
+   - Si la URL es un /exec válido → DRIVE: carga al abrir y guarda cada cambio.
    - Si no → LOCAL: los datos se guardan en este navegador.
    PERMISOS
    - Con sesión válida del sistema de tickets (localStorage "tfca_session")
      → puede editar. Sin sesión → solo vista.
    ===================================================================== */
+const TABLERO_API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxsq8pTqvG2cllL5wuZ99ZIac88VhqUbx33vFPf5sHyxaKokNP53IiPUSNJIz6UgimXqQ/exec';
 const ENV = window.ENV || null;
 const SESSION_KEY = 'tfca_session';
-const URL_EXEC = ENV && /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(String(ENV.API_URL || '').trim()) ? ENV.API_URL.trim() : '';
+const esExec = u => /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(String(u || '').trim());
+// Sin config.js (página abierta fuera del proyecto) siempre es demo local
+const URL_EXEC = ENV && esExec(ENV.TABLERO_API_URL || TABLERO_API_URL_DEFAULT) ? String(ENV.TABLERO_API_URL || TABLERO_API_URL_DEFAULT).trim() : '';
+const API_KEY_TABLERO = ENV ? (ENV.TABLERO_API_KEY || '') : '';
 const MODO = URL_EXEC ? 'drive' : 'local';
 
 function sesionActual() {
@@ -699,7 +705,7 @@ function editarColumna(key, id) {
 
 /* =====================================================================
    SINCRONIZACIÓN CON DRIVE (automática si ENV.API_URL es un /exec)
-   Usa el mismo backend del sistema de tickets:
+   Backend propio del tablero (otra hoja de cálculo):
      POST { action:'tableroLeer' | 'tableroGuardar', key, user, data }
    ===================================================================== */
 let driveListo = false, pendiente = false, timerAuto = null, sincronizando = false, otraVez = false, ultimoSync = null;
@@ -731,7 +737,7 @@ function estadoSesion() {
 async function llamarApi(action, extra = {}) {
   const r = await fetch(URL_EXEC, {
     method:'POST', // sin Content-Type: va como text/plain y evita el preflight CORS
-    body: JSON.stringify({ action, key:ENV.API_KEY, user:SESION && !SESION.demo ? SESION.user : '', ...extra })
+    body: JSON.stringify({ action, key:API_KEY_TABLERO, user:SESION && !SESION.demo ? SESION.user : '', ...extra })
   });
   const j = await r.json();
   if (!j.ok) throw new Error(j.error || 'Respuesta inválida del servidor');
