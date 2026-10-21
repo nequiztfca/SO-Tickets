@@ -21,8 +21,10 @@
   .col-head { background:var(--c); color:#fff; padding:8px 10px; border-radius:9px 9px 0 0;
               display:flex; align-items:center; gap:6px; font-weight:600; }
   .col-handle { cursor:grab; opacity:.85; }
-  .col-board.fija .col-handle { visibility:hidden; }
   .orden { font-size:.7rem; background:rgba(255,255,255,.25); border-radius:4px; padding:1px 5px; }
+  .btn-spd { color:#fff; opacity:.6; padding:0 2px; line-height:1; }
+  .btn-spd.tiene { opacity:1; }
+  .spd-pop { min-width:240px; }
 
   /* ---------- Vista Módulos: grupo por módulo, sub-columnas por área ---------- */
   .board.vista-modulos { gap:0; align-items:stretch; }
@@ -56,8 +58,9 @@
   .con-perm .prow, .compacto .con-perm .prow { grid-template-columns:40px 1fr 1.4fr 90px; }
 
   .phead { background:#e8f5e9; color:var(--verde); font-weight:700; position:sticky; top:0; z-index:1; }
-  .prow:not(.phead) { background:#fff; cursor:pointer; }
-  .prow:not(.phead):hover { background:#f2f7ff; }
+  .prow:not(.phead) { background:#fff; }
+  .editable .prow:not(.phead) { cursor:pointer; }
+  .editable .prow:not(.phead):hover { background:#f2f7ff; }
   .prow.drag { cursor:grab; }
   .prow.pendiente .c-nombre { color:#98a2ad; font-style:italic; }
   .pbody { min-height:38px; }
@@ -84,7 +87,10 @@
   .matriz-wrap tbody th { position:sticky; left:0; background:#fff; z-index:1; }
   .matriz-wrap td.parcial { background:#fff8e1; }
   .matriz-wrap tr.grupo th { background:var(--c); color:#fff; position:static; }
-  .matriz-wrap .form-check-input { cursor:pointer; }
+  .editable .matriz-wrap .form-check-input { cursor:pointer; }
+
+  /* Elementos que solo existen con sesión iniciada */
+  body:not(.editable) .solo-edicion { display:none !important; }
 
   #toast { position:fixed; bottom:16px; right:16px; z-index:2000; }
 </style>
@@ -113,23 +119,17 @@
   </div>
 
   <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
-    <button id="badgeInteg" class="badge border-0 d-none" title="Ver problemas de integridad"></button>
-    <span id="sync" class="badge"></span>
-    <button id="btnCol" class="btn btn-sm btn-success"></button>
-    <button id="btnPart" class="btn btn-sm btn-outline-success"><i class="bi bi-person-plus"></i> Empleado</button>
-    <div class="dropdown">
+    <span id="sesion" class="badge"></span>
+    <span id="sync" class="badge" role="button"></span>
+    <button id="btnCol" class="btn btn-sm btn-success solo-edicion"></button>
+    <button id="btnPart" class="btn btn-sm btn-outline-success solo-edicion"><i class="bi bi-person-plus"></i> Empleado</button>
+    <div class="dropdown solo-edicion">
       <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-database"></i> Datos</button>
       <ul class="dropdown-menu dropdown-menu-end">
-        <li><h6 class="dropdown-header">Google Drive</h6></li>
-        <li><button class="dropdown-item" id="btnDriveGuardar"><i class="bi bi-cloud-upload"></i> Guardar en Drive</button></li>
-        <li><button class="dropdown-item" id="btnDriveCargar"><i class="bi bi-cloud-download"></i> Cargar desde Drive</button></li>
-        <li><button class="dropdown-item" id="btnDriveCfg"><i class="bi bi-gear"></i> Configurar conexión</button></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><button class="dropdown-item" id="btnInteg"><i class="bi bi-shield-check"></i> Revisar integridad</button></li>
-        <li><button class="dropdown-item" id="btnExport"><i class="bi bi-download"></i> Exportar JSON</button></li>
         <li><button class="dropdown-item" id="btnImport"><i class="bi bi-upload"></i> Importar JSON</button></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><button class="dropdown-item text-danger" id="btnReset"><i class="bi bi-arrow-counterclockwise"></i> Restaurar datos iniciales</button></li>
+        <li><button class="dropdown-item" id="btnExport"><i class="bi bi-download"></i> Exportar JSON</button></li>
+        <li class="solo-local"><hr class="dropdown-divider"></li>
+        <li class="solo-local"><button class="dropdown-item text-danger" id="btnReset"><i class="bi bi-arrow-counterclockwise"></i> Restaurar demo</button></li>
       </ul>
     </div>
   </div>
@@ -151,7 +151,7 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-danger me-auto" id="mEliminar"><i class="bi bi-trash"></i> Eliminar</button>
         <span id="mError" class="text-danger small"></span>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="mCancelar">Cancelar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" class="btn btn-success" id="mGuardar">Guardar</button>
       </div>
     </div>
@@ -161,97 +161,111 @@
 <div id="toast"></div>
 <input type="file" id="fileImport" accept=".json,application/json" hidden>
 
+<!-- Credenciales y URL del Apps Script (mismo archivo que usa el sistema de tickets).
+     Solo se lee window.ENV; NO se carga core.js ni el menú. -->
+<script src="../js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 /* =====================================================================
-   MODELO RELACIONAL (misma cardinalidad que la BD y que la hoja de Drive)
-
-     AREAS 1 ──< N ROLES          (roles.id_area)
-     AREAS 1 ──< N EMPLEADOS      (empleados.id_area)
-     ROLES 1 ──< N EMPLEADOS      (empleados.id_rol)
-     EMPLEADOS N >──< M MODULOS   (tabla puente PERMISOS: id_usuario + id_modulo, par único)
-
-   - modulos ← CAT_SISTEMAS (id, nombre, folder, orden)
-   - "orden" existe en AREAS, ROLES y MODULOS: SOLO sirve para acomodar columnas
-     en pantalla. Nunca cambia ningún id.
-   - empleados sin CURP, id_segob ni id_checador. Sin estatus ni fechas.
-   - Supuesto: id_usuario_sistema = id del empleado.
+   MODO DE TRABAJO (automático)
+   - Si ENV.API_URL es una URL de Apps Script (termina en /exec) → DRIVE:
+       carga de la hoja al abrir y guarda solo cada cambio.
+   - Si no → LOCAL: los datos se guardan en este navegador.
+   PERMISOS
+   - Con sesión válida del sistema de tickets (localStorage "tfca_session")
+     → puede editar. Sin sesión → solo vista.
    ===================================================================== */
-const STORAGE_KEY = 'tablero-accesos-v3';
+const ENV = window.ENV || null;
+const SESSION_KEY = 'tfca_session';
+const URL_EXEC = ENV && /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(String(ENV.API_URL || '').trim()) ? ENV.API_URL.trim() : '';
+const MODO = URL_EXEC ? 'drive' : 'local';
+
+function sesionActual() {
+  if (!ENV) return { user:'demo', name:'Demo', role:'admin', demo:true }; // abierto fuera del proyecto: demo editable
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (!s || !s.exp || Date.now() > s.exp) return null;
+    // La sesión debe pertenecer a un usuario declarado en config.js
+    if (Array.isArray(ENV.USERS) && !ENV.USERS.some(u => u.user === s.user)) return null;
+    return s;
+  } catch (e) { return null; }
+}
+const SESION = sesionActual();
+let PUEDE_EDITAR = !!SESION;
+
+/* =====================================================================
+   MODELO RELACIONAL
+     AREAS 1 ──< N ROLES · AREAS 1 ──< N EMPLEADOS · ROLES 1 ──< N EMPLEADOS
+     EMPLEADOS N >──< M MODULOS (PERMISOS: id_usuario + id_modulo, par único)
+   "orden" (áreas, roles, módulos) solo acomoda columnas; nunca cambia ids.
+   "spd" (módulos) es opcional y se ve como popover en la vista Módulos.
+   ===================================================================== */
+const STORAGE_KEY = 'tablero-accesos-v4:' + MODO;
 const PALETA = ['#2e7d32','#1565c0','#6a1b9a','#ef6c00','#00838f','#c62828','#4e342e','#283593','#ad1457','#5d4037','#00695c','#827717','#37474f','#6d4c41','#0277bd'];
 const FLAGS = [['c','consultar','C'],['i','insertar','I'],['a','actualizar','A'],['e','eliminar','E']];
+const VACIO = () => ({ areas:[], roles:[], modulos:[], empleados:[], permisos:[] });
 
 const emp = (id, usuario, nombre, paterno, materno, rolId, areaId) => ({ id, usuario, nombre, paterno, materno, rolId, areaId });
 
-const INICIAL = {
+/* ---------- DATOS DUMMY (solo demostración) ----------
+   Los datos reales se importan desde JSON una vez conectado al /exec. */
+const DEMO = {
   areas: [
-    { id:1, nombre:'SISTEMAS',                 orden:1, color:'#ef6c00' },
-    { id:2, nombre:'OFICIALÍA DE PARTES',      orden:2, color:'#2e7d32' },
-    { id:3, nombre:'ALTA EXPEDIENTES',         orden:3, color:'#1565c0' },
-    { id:4, nombre:'FORMACIÓN DE EXPEDIENTES', orden:4, color:'#6a1b9a' },
-    { id:5, nombre:'PRIMERA SALA',             orden:5, color:'#00838f' },
-    { id:6, nombre:'SEGUNDA SALA',             orden:6, color:'#c62828' }
+    { id:1, nombre:'RECEPCIÓN',       orden:1, color:'#2e7d32' },
+    { id:2, nombre:'REVISIÓN',        orden:2, color:'#1565c0' },
+    { id:3, nombre:'ARCHIVO CENTRAL', orden:3, color:'#6a1b9a' },
+    { id:4, nombre:'SALA DEMO',       orden:4, color:'#00838f' }
   ],
   roles: [
-    { id:1, nombre:'ADMINISTRADOR',                    areaId:1, orden:1, color:'#c62828' },
-    { id:2, nombre:'JEFE DE OFICIALIA',                areaId:2, orden:2, color:'#2e7d32' },
-    { id:3, nombre:'CAPTURISTA OFICIAL DE PARTES',     areaId:2, orden:3, color:'#00838f' },
-    { id:4, nombre:'JEFE DE FORMACION DE EXPEDIENTES', areaId:3, orden:4, color:'#1565c0' },
-    { id:5, nombre:'FORMADOR DE EXPEDIENTES',          areaId:3, orden:5, color:'#283593' },
-    { id:6, nombre:'TÉCNICO SUPERIOR',                 areaId:1, orden:6, color:'#ef6c00' },
-    { id:7, nombre:'CAPTURISTA DE SALA',               areaId:4, orden:7, color:'#6a1b9a' }
+    { id:1, nombre:'ADMINISTRADOR DEMO', areaId:null, orden:1, color:'#c62828' },
+    { id:2, nombre:'JEFE DE RECEPCIÓN',  areaId:1,    orden:2, color:'#2e7d32' },
+    { id:3, nombre:'CAPTURISTA',         areaId:1,    orden:3, color:'#00838f' },
+    { id:4, nombre:'REVISOR',            areaId:2,    orden:4, color:'#1565c0' },
+    { id:5, nombre:'ARCHIVISTA',         areaId:3,    orden:5, color:'#6a1b9a' }
   ],
-  // CAT_SISTEMAS. Los ids 7–15 aparecen en permisos pero no vienen en el catálogo.
   modulos: [
-    { id:1, nombre:'OFICIALIA DE PARTES',      folder:'OFICIALIA',          orden:3, color:'#2e7d32' },
-    { id:2, nombre:'ADMINISTRACIÓN OFICIALIA', folder:'ADMIN_OFICIALIA',    orden:2, color:'#00838f' },
-    { id:3, nombre:'REPORTES OFICIALIA',       folder:'REPORTES_OFICIALIA', orden:4, color:'#283593' },
-    { id:4, nombre:'ADMINISTRACIÓN',           folder:'ADMIN',              orden:1, color:'#c62828' },
-    { id:5, nombre:'ARCHIVO',                  folder:'ARCHIVO',            orden:5, color:'#b8860b' },
-    { id:6, nombre:'BUZONES',                  folder:'BUZONES',            orden:6, color:'#6a1b9a' },
-    ...Array.from({ length:9 }, (_, i) => ({ id:i + 7, nombre:`SUBSISTEMA ${i + 7} (SIN CATÁLOGO)`, folder:'', orden:i + 7, color:'#90a4ae' }))
+    { id:1, nombre:'RECEPCIÓN',      folder:'RECEPCION', orden:1, spd:'SP_DEMO_RECEPCION', color:'#2e7d32' },
+    { id:2, nombre:'REVISIÓN',       folder:'REVISION',  orden:2, spd:'',                  color:'#1565c0' },
+    { id:3, nombre:'ARCHIVO',        folder:'ARCHIVO',   orden:3, spd:'SP_DEMO_ARCHIVO',   color:'#b8860b' },
+    { id:4, nombre:'REPORTES',       folder:'REPORTES',  orden:4, spd:'',                  color:'#283593' },
+    { id:5, nombre:'ADMINISTRACIÓN', folder:'ADMIN',     orden:5, spd:'',                  color:'#c62828' }
   ],
   empleados: [
-    emp(17, 'CEZI800920955', 'IRANDI',       'CELIO',   'ZENDEJAS',   2, 2),
-    emp(16, 'OOPM880128S9A', 'MONSERRAT',    'OCHOA',   'PARRA',      2, 2),
-    emp(4,  'SAFA9301057S7', 'ANA GRISELDA', 'SANCHEZ', 'FLORES',     3, 2),
-    emp(18, 'COCM800505AZ2', 'MARIO',        'CORTES',  'CIENFUEGOS', 3, 2),
-    emp(19, 'FAGD940720588', 'DANIELA',      'FAJARDO', 'GUEVARA',    3, 3),
-    // De la imagen; ID real por confirmar (901, 902 son provisionales)
-    emp(901, '', 'IHAN BRANDON',  'MACIAS', 'GAMA',  3, 2),
-    emp(902, '', 'MA. DE LA LUZ', 'TELLEZ', 'SILVA', 4, 4),
-    // Usuarios que aparecen en permisos pero sin datos de empleado todavía
-    ...[1, 2, 3, 6, 8, 10, 11, 12, 13, 20].map(id => emp(id, '', '', '', '', null, null))
+    emp(101, 'DEMO001', 'ANA',    'PÉREZ',    'LÓPEZ',   2, 1),
+    emp(102, 'DEMO002', 'LUIS',   'GARCÍA',   'RUIZ',    3, 1),
+    emp(103, 'DEMO003', 'SOFÍA',  'MARTÍNEZ', 'DÍAZ',    3, 1),
+    emp(104, 'DEMO004', 'CARLOS', 'HERNÁNDEZ','SOTO',    4, 2),
+    emp(105, 'DEMO005', 'ELENA',  'TORRES',   'VEGA',    4, 2),
+    emp(106, 'DEMO006', 'JORGE',  'RAMÍREZ',  'CRUZ',    5, 3),
+    emp(107, 'DEMO007', 'MARTA',  'FLORES',   'NAVA',    3, 4),
+    emp(108, 'DEMO008', 'PABLO',  'MORALES',  'REYES',   1, null),
+    emp(109, '',        '',       '',         '',        null, null)   // ejemplo de usuario sin datos
   ],
   // [id_usuario, id_modulo, consultar, insertar, actualizar, eliminar]
   permisos: [
-    [1,1,1,1,1,1],[2,1,1,1,1,1],[3,1,1,1,1,0],[4,1,1,1,1,1],[6,14,1,1,1,1],[8,1,1,1,1,1],[10,1,1,1,1,1],
-    [11,1,1,1,1,1],[12,1,1,1,1,1],[13,1,1,1,1,1],[12,3,1,1,1,1],[3,3,1,1,2,0],[12,2,1,1,1,1],[3,2,1,1,1,0],
-    [1,2,1,1,1,1],[1,3,1,1,1,1],[1,4,1,1,1,1],[3,4,1,1,1,1],[12,4,1,1,1,1],[1,6,1,1,1,1],[3,6,1,1,1,1],
-    [12,6,1,1,1,1],[1,7,1,1,1,1],[3,7,1,1,1,1],[12,7,1,1,1,1],[12,5,1,1,1,1],[12,8,1,1,1,1],[12,9,1,1,1,1],
-    [1,5,1,1,1,1],[1,8,1,1,1,1],[1,10,1,1,1,1],[12,10,1,1,1,1],[1,11,1,1,1,1],[12,11,1,1,1,1],[1,9,1,1,1,1],
-    [1,13,1,1,1,1],[12,13,1,1,1,1],[1,14,1,1,1,1],[12,14,1,1,1,1],[1,15,1,1,1,1],[12,15,1,1,1,1],[6,15,1,1,1,1],
-    [16,5,1,1,1,1],[17,5,1,1,1,1],[18,5,1,1,1,1],[2,5,1,1,1,1],[3,5,1,1,1,1],[19,5,1,1,1,1],[20,5,1,1,1,1],
-    [19,11,1,1,1,1],[16,1,1,1,1,1],[16,2,1,1,1,1],[16,3,1,1,1,1],[16,4,1,1,1,1],[17,1,1,1,1,1],[17,2,1,1,1,1],
-    [17,3,1,1,1,1],[17,4,1,1,1,1],[4,2,1,1,1,1],[4,3,1,1,1,1],[4,4,1,1,1,1],
-    [901,1,1,1,1,1],[902,5,1,1,1,1]
+    [101,1,1,1,1,1],[101,2,1,0,0,0],[101,4,1,1,1,1],
+    [102,1,1,1,1,0],[103,1,1,1,1,0],[103,3,1,0,0,0],
+    [104,2,1,1,1,1],[104,3,1,1,2,0],[105,2,1,1,1,0],
+    [106,3,1,1,1,1],[106,4,1,0,0,0],[107,3,1,1,0,0],
+    [108,1,1,1,1,1],[108,2,1,1,1,1],[108,3,1,1,1,1],[108,4,1,1,1,1],[108,5,1,1,1,1],
+    [109,5,1,0,0,0]
   ].map(([u, m, c, i, a, e]) => ({ u, m, c, i, a, e }))
 };
 
 /* ---------------- Estado y persistencia local ---------------- */
 let db = cargarLocal();
-let vista = leerPref('vista', 'areas');
+let vista = leerPref('vista', 'modulos');
 let filtro = '';
 ordenar();
 
 function cargarLocal() {
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return structuredClone(INICIAL);
+  return MODO === 'local' ? structuredClone(DEMO) : VACIO();
 }
 function guardarLocal() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch (e) {} }
-function leerPref(k, def) { try { return localStorage.getItem(STORAGE_KEY + ':' + k) ?? def; } catch (e) { return def; } }
-function guardarPref(k, v) { try { localStorage.setItem(STORAGE_KEY + ':' + k, v); } catch (e) {} }
+function leerPref(k, def) { try { return localStorage.getItem('tablero-accesos:' + k) ?? def; } catch (e) { return def; } }
+function guardarPref(k, v) { try { localStorage.setItem('tablero-accesos:' + k, v); } catch (e) {} }
 
 /* ---------------- Orden de visualización (no toca ids) ---------------- */
 function ordenar() {
@@ -283,64 +297,18 @@ const coincide = p => {
   return t.includes(filtro);
 };
 
-/* ---------------- Integridad referencial (útil tras cargas masivas) ---------------- */
-function revisarIntegridad(d = db) {
-  const prob = [];
-  const unicos = (arr, hoja) => {
-    const vistos = new Set();
-    arr.forEach(x => {
-      if (x.id == null) prob.push(`${hoja}: hay una fila sin id`);
-      else if (vistos.has(x.id)) prob.push(`${hoja}: el id ${x.id} está repetido`);
-      vistos.add(x.id);
-    });
-  };
-  unicos(d.areas, 'AREAS'); unicos(d.roles, 'ROLES'); unicos(d.modulos, 'MODULOS'); unicos(d.empleados, 'EMPLEADOS');
-  const A = new Set(d.areas.map(x => x.id)), R = new Set(d.roles.map(x => x.id));
-  const M = new Set(d.modulos.map(x => x.id)), E = new Set(d.empleados.map(x => x.id));
-  d.roles.forEach(r => { if (r.areaId != null && !A.has(r.areaId)) prob.push(`ROLES: el rol ${r.id} apunta a id_area ${r.areaId}, que no existe`); });
-  d.empleados.forEach(e => {
-    if (e.rolId != null && !R.has(e.rolId))   prob.push(`EMPLEADOS: el empleado ${e.id} apunta a id_rol ${e.rolId}, que no existe`);
-    if (e.areaId != null && !A.has(e.areaId)) prob.push(`EMPLEADOS: el empleado ${e.id} apunta a id_area ${e.areaId}, que no existe`);
-  });
-  const pares = new Set();
-  d.permisos.forEach(x => {
-    if (!E.has(x.u)) prob.push(`PERMISOS: id_usuario ${x.u} no existe en EMPLEADOS`);
-    if (!M.has(x.m)) prob.push(`PERMISOS: id_modulo ${x.m} no existe en MODULOS`);
-    const k = x.u + '-' + x.m;
-    if (pares.has(k)) prob.push(`PERMISOS: el par usuario ${x.u} / módulo ${x.m} está repetido`);
-    pares.add(k);
-    FLAGS.forEach(([f, t]) => { if (![0, 1, 2].includes(x[f])) prob.push(`PERMISOS: ${t} = ${x[f]} no válido (usuario ${x.u}, módulo ${x.m})`); });
-  });
-  return prob;
-}
-
-function actualizarBadgeIntegridad() {
-  const n = revisarIntegridad().length, b = $('#badgeInteg');
-  b.classList.toggle('d-none', !n);
-  b.className = `badge border-0 text-bg-danger ${n ? '' : 'd-none'}`;
-  b.innerHTML = `<i class="bi bi-exclamation-octagon"></i> ${n} problema${n === 1 ? '' : 's'}`;
-}
-
-function mostrarIntegridad() {
-  const p = revisarIntegridad();
-  abrirModal('Revisión de integridad', p.length
-    ? `<p class="small">Se encontraron <b>${p.length}</b> problemas. Corrígelos en la hoja (o aquí) para que la relación sea consistente:</p>
-       <ul class="small mb-0">${p.slice(0, 300).map(x => `<li>${esc(x)}</li>`).join('')}</ul>${p.length > 300 ? '<p class="small text-muted">…y más.</p>' : ''}`
-    : '<p class="text-success mb-0"><i class="bi bi-check-circle"></i> Todo en orden: ids únicos y todas las referencias existen.</p>',
-    {}, { soloCerrar:true });
-}
-
 /* ---------------- Configuración de cada vista ---------------- */
 const VISTAS = {
   areas:   { key:'area',   coleccion:()=>db.areas,   campo:'areaId', nuevo:'Área',
-             hint:'Arrastra filas entre columnas para cambiar de área · ⋮⋮ reordena columnas (solo cambia "orden") · clic en una fila para editar.' },
+             hint:'Arrastra filas entre columnas para cambiar de área · ⋮⋮ reordena columnas · clic en una fila para editar.' },
   modulos: { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Cada módulo se divide por área. Arrastra ⋮⋮ para reordenar módulos (solo cambia "orden"). Arrastra una persona a otro módulo para darle acceso.' },
+             hint:'Cada módulo se divide por área · ⋮⋮ reordena módulos · arrastra una persona a otro módulo para darle acceso · ícono de base de datos = SPD.' },
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
              hint:'Arrastra filas entre columnas para cambiar el rol de una persona.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
+const HINT_LECTURA = 'Modo solo lectura. Inicia sesión en el sistema de tickets para editar.';
 
 /* ---------------- Render: piezas ---------------- */
 const encabezado = `<div class="prow phead">
@@ -356,7 +324,7 @@ function badgesPermiso(p) {
 
 function fila(p, { drag = false, modulo = null } = {}) {
   const rol = rolDe(p.rolId), area = areaDe(p.areaId), nc = nombreCompleto(p);
-  return `<div class="prow ${drag ? 'drag' : ''} ${nc ? '' : 'pendiente'}" data-pid="${p.id}">
+  return `<div class="prow ${drag && PUEDE_EDITAR ? 'drag' : ''} ${nc ? '' : 'pendiente'}" data-pid="${p.id}">
     <div class="text-end">${p.id}</div>
     <div class="c-usuario">${esc(p.usuario) || '—'}</div>
     <div class="c-idrol text-end">${p.rolId ?? '—'}</div>
@@ -366,19 +334,23 @@ function fila(p, { drag = false, modulo = null } = {}) {
   </div>`;
 }
 
+const handle = txt => PUEDE_EDITAR ? `<i class="bi bi-grip-vertical col-handle" title="${txt}"></i>` : '';
+const btnEditar = () => PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0 ms-1" data-act="edit-col" title="Editar"><i class="bi bi-pencil-square"></i></button>` : '';
+const btnAgregar = txt => PUEDE_EDITAR ? `<button class="add-col" data-act="add-col"><i class="bi bi-plus-circle fs-3"></i><span>Agregar ${txt}</span></button>` : '';
+
 function columna({ key, id, titulo, color, lista, drag = false, extra = '', fija = false, orden = null }) {
   const vis = lista.filter(coincide);
   return `<section class="col-board ${fija ? 'fija' : ''}" data-key="${key}" data-id="${id}">
     <header class="col-head" style="--c:${color}">
-      <i class="bi bi-grip-vertical col-handle" title="Arrastrar columna"></i>
+      ${fija ? '' : handle('Arrastrar columna')}
       ${orden != null ? `<span class="orden" title="Orden de visualización">#${orden}</span>` : ''}
       <span class="flex-grow-1 text-truncate" title="${esc(titulo)}">${esc(titulo)}</span>
       <span class="badge bg-light text-dark">${vis.length}</span>
-      ${fija ? '' : `<button class="btn btn-sm btn-link text-white p-0 ms-1" data-act="edit-col" title="Editar columna"><i class="bi bi-pencil-square"></i></button>`}
+      ${fija ? '' : btnEditar()}
     </header>
     ${extra}
     <div class="ptable">${encabezado}
-      <div class="pbody" data-col="${id}" data-empty="${drag ? 'Arrastra personas aquí' : 'Sin personas'}">${vis.map(p => fila(p, { drag })).join('')}</div>
+      <div class="pbody" data-col="${id}" data-empty="${drag && PUEDE_EDITAR ? 'Arrastra personas aquí' : 'Sin personas'}">${vis.map(p => fila(p, { drag })).join('')}</div>
     </div>
   </section>`;
 }
@@ -398,7 +370,7 @@ function htmlModulos(lista) {
   const grupos = [];
   for (const m of db.modulos) {
     const gente = lista.filter(p => permiso(p.id, m.id) && coincide(p));
-    if (filtro && !gente.length) continue; // al buscar, se ocultan módulos sin coincidencias
+    if (filtro && !gente.length) continue;
     const subs = [];
     db.areas.forEach(a => { const g = gente.filter(p => p.areaId === a.id); if (g.length) subs.push({ area:a, gente:g }); });
     const sinArea = gente.filter(p => !areaDe(p.areaId));
@@ -412,23 +384,24 @@ function htmlModulos(lista) {
           <span class="badge text-bg-light">${s.gente.length}</span>
         </div>
         <div class="ptable">${encabezado}
-          <div class="pbody" data-col="${m.id}" data-empty="Arrastra personas aquí para darles acceso">${s.gente.map(p => fila(p, { drag:true, modulo:m.id })).join('')}</div>
+          <div class="pbody" data-col="${m.id}" data-empty="${PUEDE_EDITAR ? 'Arrastra personas aquí para darles acceso' : 'Sin personas'}">${s.gente.map(p => fila(p, { drag:true, modulo:m.id })).join('')}</div>
         </div>
       </div>`).join(divisor());
 
     grupos.push(`<section class="mod-group" data-key="modulo" data-id="${m.id}">
       <header class="col-head" style="--c:${m.color}">
-        <i class="bi bi-grip-vertical col-handle" title="Arrastrar módulo"></i>
+        ${handle('Arrastrar módulo')}
         <span class="orden" title="Orden de visualización">#${m.orden ?? '–'}</span>
         <span class="flex-grow-1 text-truncate" title="${esc(m.nombre)}">${m.id} · ${esc(m.nombre)}</span>
+        <button class="btn btn-sm btn-link btn-spd ${m.spd ? 'tiene' : ''}" data-act="spd" title="${m.spd ? 'SPD: ' + esc(m.spd) : 'SPD (opcional)'}">
+          <i class="bi ${m.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
         <span class="badge bg-light text-dark">${gente.length}</span>
-        <button class="btn btn-sm btn-link text-white p-0 ms-1" data-act="edit-col" title="Editar módulo"><i class="bi bi-pencil-square"></i></button>
+        ${btnEditar()}
       </header>
       <div class="mod-cols">${cols}</div>
     </section>`);
   }
-  return grupos.join(divisor()) +
-    `<button class="add-col" data-act="add-col"><i class="bi bi-plus-circle fs-3"></i><span>Agregar módulo</span></button>`;
+  return grupos.join(divisor()) + btnAgregar('módulo');
 }
 
 function htmlMatriz() {
@@ -444,9 +417,9 @@ function htmlMatriz() {
       const x = permiso(p.id, m.id);
       const parcial = x && FLAGS.some(([k]) => x[k] !== 1);
       return `<td class="text-center ${parcial ? 'parcial' : ''}" title="${x ? FLAGS.map(([k, t]) => `${t}: ${x[k]}`).join(' · ') : 'Sin acceso'}">
-        <input class="form-check-input" type="checkbox" data-u="${p.id}" data-m="${m.id}" ${x ? 'checked' : ''}></td>`;
+        <input class="form-check-input" type="checkbox" data-u="${p.id}" data-m="${m.id}" ${x ? 'checked' : ''} ${PUEDE_EDITAR ? '' : 'disabled'}></td>`;
     }).join('');
-    filas += `<tr><th class="text-nowrap" role="button" data-pid="${p.id}">${p.id} · ${esc(nombreCompleto(p) || '(sin datos)')}
+    filas += `<tr><th class="text-nowrap" data-pid="${p.id}">${p.id} · ${esc(nombreCompleto(p) || '(sin datos)')}
       <div class="small text-muted fw-normal">${esc(rolDe(p.rolId)?.nombre || 'SIN ROL')}</div></th>${tds}
       <td class="text-center fw-semibold">${modulosDe(p.id).length}</td></tr>`;
   }
@@ -461,14 +434,16 @@ function htmlMatriz() {
 
 /* ---------------- Render principal ---------------- */
 function render() {
+  cerrarPopover();
   const v = VISTAS[vista];
+  document.body.classList.toggle('editable', PUEDE_EDITAR);
   document.body.classList.toggle('compacto', $('#chkCompacto').checked);
+  document.querySelectorAll('.solo-local').forEach(el => el.classList.toggle('d-none', MODO !== 'local'));
   document.querySelectorAll('#vistas [data-vista]').forEach(b => b.classList.toggle('active', b.dataset.vista === vista));
   $('#btnCol').innerHTML = `<i class="bi bi-plus-lg"></i> ${v.nuevo}`;
-  $('#hint').textContent = v.hint;
+  $('#hint').textContent = PUEDE_EDITAR ? v.hint : HINT_LECTURA;
   const pend = db.empleados.filter(p => !nombreCompleto(p)).length;
   $('#resumen').textContent = `${db.areas.length} áreas · ${db.modulos.length} módulos · ${db.roles.length} roles · ${db.empleados.length} empleados (${pend} sin datos) · ${db.permisos.length} permisos`;
-  actualizarBadgeIntegridad();
 
   const board = $('#board');
   board.classList.toggle('es-matriz', vista === 'matriz');
@@ -498,13 +473,13 @@ function render() {
     if (sin.filter(coincide).length) cols.push(columna({ key:'rol', id:0, titulo:'SIN ROL', color:'#78909c', lista:sin, drag:true, fija:true }));
   }
 
-  board.innerHTML = cols.join('') +
-    `<button class="add-col" data-act="add-col"><i class="bi bi-plus-circle fs-3"></i><span>Agregar ${v.nuevo.toLowerCase()}</span></button>`;
+  board.innerHTML = cols.join('') + btnAgregar(v.nuevo.toLowerCase());
   initSortable();
 }
 
-/* ---------------- Drag & drop (SortableJS) ---------------- */
+/* ---------------- Drag & drop (SortableJS) — solo con sesión ---------------- */
 function initSortable() {
+  if (!PUEDE_EDITAR) return;
   const board = $('#board');
   const selector = vista === 'modulos' ? '.mod-group' : '.col-board:not(.fija)';
 
@@ -552,19 +527,52 @@ function initSortable() {
   }));
 }
 
+/* ---------------- Popover del SPD (vista Módulos) ---------------- */
+let popActual = null;
+function cerrarPopover() { if (popActual) { popActual.dispose(); popActual = null; } }
+function abrirSpd(btn, modId) {
+  const m = modDe(modId);
+  if (popActual && popActual._element === btn) return cerrarPopover();
+  cerrarPopover();
+  const content = PUEDE_EDITAR
+    ? `<form class="spd-pop" data-spd-form="${m.id}">
+         <label class="form-label small mb-1">Nombre del SPD <span class="text-muted">(opcional)</span></label>
+         <input class="form-control form-control-sm" name="spd" value="${esc(m.spd || '')}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off">
+         <div class="d-flex gap-1 mt-2 justify-content-end">
+           <button type="button" class="btn btn-sm btn-light" data-spd-cerrar>Cancelar</button>
+           <button type="submit" class="btn btn-sm btn-success">Guardar</button>
+         </div>
+       </form>`
+    : `<div class="small">${m.spd ? `<code>${esc(m.spd)}</code>` : '<span class="text-muted">Sin SPD registrado</span>'}</div>`;
+  popActual = new bootstrap.Popover(btn, { html:true, sanitize:false, trigger:'manual', placement:'bottom', container:'body',
+    title:`SPD · ${esc(m.nombre)}`, content });
+  popActual.show();
+  setTimeout(() => document.querySelector('.popover [name="spd"]')?.focus(), 50);
+}
+document.addEventListener('submit', e => {
+  const f = e.target.closest('[data-spd-form]'); if (!f) return;
+  e.preventDefault();
+  const m = modDe(+f.dataset.spdForm);
+  m.spd = f.spd.value.trim();
+  cambio(); render(); toast(m.spd ? `SPD guardado: ${m.spd}` : 'SPD eliminado');
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-spd-cerrar]')) return cerrarPopover();
+  if (popActual && !e.target.closest('.popover') && !e.target.closest('[data-act="spd"]')) cerrarPopover();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarPopover(); });
+
 /* ---------------- Modal genérico ---------------- */
 const modalEl = $('#modal');
 const modal = new bootstrap.Modal(modalEl);
 let acciones = {};
-function abrirModal(titulo, cuerpo, acc, { grande = false, soloCerrar = false } = {}) {
+function abrirModal(titulo, cuerpo, acc, { grande = false } = {}) {
   acciones = acc;
   modalEl.querySelector('.modal-dialog').classList.toggle('modal-lg', grande);
   modalEl.querySelector('.modal-title').textContent = titulo;
   modalEl.querySelector('.modal-body').innerHTML = cuerpo;
   $('#mError').textContent = '';
   $('#mEliminar').classList.toggle('d-none', !acc.eliminar);
-  $('#mGuardar').classList.toggle('d-none', soloCerrar);
-  $('#mCancelar').textContent = soloCerrar ? 'Cerrar' : 'Cancelar';
   modal.show();
 }
 const error = msg => { $('#mError').textContent = msg; return false; };
@@ -577,8 +585,9 @@ const opciones = (arr, sel, vacio) =>
   (vacio ? `<option value="">${vacio}</option>` : '') +
   arr.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${x.id} · ${esc(x.nombre)}</option>`).join('');
 
-/* ---------------- Formularios ---------------- */
+/* ---------------- Formularios (solo con sesión) ---------------- */
 function editarEmpleado(p) {
+  if (!PUEDE_EDITAR) return;
   const nuevo = !p;
   const base = p || emp(nextId(db.empleados), '', '', '', '', null, null);
   const permisosTabla = db.modulos.map(m => {
@@ -611,7 +620,6 @@ function editarEmpleado(p) {
       const up = k => (f.get(k) || '').trim().toUpperCase();
       if (!id) return error('El ID es obligatorio.');
       if (db.empleados.some(x => x.id === id && x !== p)) return error('Ese ID ya existe.');
-      // Nuevos permisos (si un valor era 2 y sigue marcado, se conserva)
       const nuevos = [];
       for (const m of db.modulos) {
         const ant = permiso(base.id, m.id);
@@ -636,11 +644,12 @@ function editarEmpleado(p) {
 }
 
 function editarColumna(key, id) {
+  if (!PUEDE_EDITAR) return;
   const col = key === 'area' ? db.areas : key === 'modulo' ? db.modulos : db.roles;
   const etiqueta = { area:'área', modulo:'módulo', rol:'rol' }[key];
   const nuevo = id == null;
   const it = nuevo
-    ? { id:nextId(col), nombre:'', orden:siguienteOrden(col), color:PALETA[col.length % PALETA.length], areaId:null, folder:'' }
+    ? { id:nextId(col), nombre:'', orden:siguienteOrden(col), color:PALETA[col.length % PALETA.length], areaId:null, folder:'', spd:'' }
     : col.find(x => x.id === id);
   abrirModal(`${nuevo ? 'Nuevo' : 'Editar'} ${etiqueta}`, `
     <form id="f" class="row g-2">
@@ -648,7 +657,9 @@ function editarColumna(key, id) {
       <div class="col-7"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(it.nombre)}"></div>
       <div class="col-2"><label class="form-label small">Color</label><input name="color" type="color" class="form-control form-control-color w-100" value="${it.color}"></div>
       <div class="col-4"><label class="form-label small">Orden (solo vista)</label><input name="orden" type="number" min="1" class="form-control" value="${it.orden ?? ''}"></div>
-      ${key === 'modulo' ? `<div class="col-8"><label class="form-label small">Folder</label><input name="folder" class="form-control text-uppercase" value="${esc(it.folder || '')}"></div>` : ''}
+      ${key === 'modulo' ? `
+        <div class="col-8"><label class="form-label small">Folder</label><input name="folder" class="form-control text-uppercase" value="${esc(it.folder || '')}"></div>
+        <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control" value="${esc(it.spd || '')}"></div>` : ''}
       ${key === 'rol' ? `<div class="col-8"><label class="form-label small">Área del rol</label><select name="areaId" class="form-select">${opciones(db.areas, it.areaId, 'Sin área')}</select></div>` : ''}
       <div class="col-12 small text-muted">Cambiar el orden no modifica ningún id ni relación.</div>
       <button hidden></button>
@@ -660,7 +671,7 @@ function editarColumna(key, id) {
       if (!nuevoId) return error('El ID es obligatorio.');
       if (!nombre) return error('El nombre es obligatorio.');
       if (col.some(x => x.id === nuevoId && x !== it)) return error('Ese ID ya existe.');
-      if (!nuevo && nuevoId !== it.id) { // mantener integridad referencial
+      if (!nuevo && nuevoId !== it.id) {
         if (!confirm(`Cambiar el id ${it.id} → ${nuevoId} actualizará todas sus referencias. ¿Continuar?`)) return false;
         if (key === 'area')   { db.empleados.forEach(p => { if (p.areaId === it.id) p.areaId = nuevoId; });
                                 db.roles.forEach(r => { if (r.areaId === it.id) r.areaId = nuevoId; }); }
@@ -669,7 +680,8 @@ function editarColumna(key, id) {
       }
       Object.assign(it, { id:nuevoId, nombre, color:f.get('color'), orden:num(f.get('orden')) ?? siguienteOrden(col) });
       if (key === 'rol') it.areaId = num(f.get('areaId')); else delete it.areaId;
-      if (key === 'modulo') it.folder = (f.get('folder') || '').trim().toUpperCase(); else delete it.folder;
+      if (key === 'modulo') { it.folder = (f.get('folder') || '').trim().toUpperCase(); it.spd = (f.get('spd') || '').trim(); }
+      else { delete it.folder; delete it.spd; }
       if (nuevo) col.push(it);
       ordenar(); cambio(); render(); toast(nuevo ? `${etiqueta} agregado` : 'Cambios guardados');
     },
@@ -686,48 +698,52 @@ function editarColumna(key, id) {
 }
 
 /* =====================================================================
-   GOOGLE DRIVE (Hoja de cálculo vía Apps Script Web App)
-   La página envía POST {token, accion:'leer'|'guardar', data}
-   Pestañas: AREAS, ROLES, MODULOS, EMPLEADOS, PERMISOS
+   SINCRONIZACIÓN CON DRIVE (automática si ENV.API_URL es un /exec)
+   Usa el mismo backend del sistema de tickets:
+     POST { action:'tableroLeer' | 'tableroGuardar', key, user, data }
    ===================================================================== */
-const PESTANAS = ['AREAS', 'ROLES', 'MODULOS', 'EMPLEADOS', 'PERMISOS'];
-let cfg = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY + ':drive')) || {}; } catch (e) { return {}; } })();
-let pendiente = leerPref('pendiente', '0') === '1';
-let ultimoSync = null, timerAuto = null, sincronizando = false;
+let driveListo = false, pendiente = false, timerAuto = null, sincronizando = false, otraVez = false, ultimoSync = null;
 
 function cambio() {
   guardarLocal();
-  pendiente = true; guardarPref('pendiente', '1'); estadoSync();
-  if (cfg.url && cfg.auto) { clearTimeout(timerAuto); timerAuto = setTimeout(() => guardarDrive(true), 2500); }
+  if (MODO !== 'drive') return;
+  pendiente = true; estadoSync();
+  clearTimeout(timerAuto);
+  timerAuto = setTimeout(guardarDrive, 1500);
 }
 
 function estadoSync(estado) {
   const b = $('#sync');
-  const set = (cls, html) => { b.className = 'badge ' + cls; b.innerHTML = html; };
+  const set = (cls, html, title) => { b.className = 'badge ' + cls; b.innerHTML = html; b.title = title || ''; };
+  if (MODO === 'local')        return set('text-bg-secondary', '<i class="bi bi-laptop"></i> Local', 'Sin /exec en config.js: los datos se guardan en este navegador');
   if (estado === 'trabajando') return set('text-bg-info', '<span class="spinner-border spinner-border-sm"></span> Drive…');
-  if (estado === 'error')      return set('text-bg-danger', '<i class="bi bi-exclamation-triangle"></i> Error Drive');
-  if (!cfg.url)                return set('text-bg-secondary', '<i class="bi bi-laptop"></i> Solo local');
-  if (pendiente)               return set('text-bg-warning', '<i class="bi bi-cloud-arrow-up"></i> Sin subir');
-  set('text-bg-success', `<i class="bi bi-cloud-check"></i> Drive ${ultimoSync ? ultimoSync.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' }) : ''}`);
+  if (estado === 'error')      return set('text-bg-danger', '<i class="bi bi-exclamation-triangle"></i> Error Drive', 'Clic para reintentar');
+  if (pendiente)               return set('text-bg-warning', '<i class="bi bi-cloud-arrow-up"></i> Guardando…');
+  set('text-bg-success', `<i class="bi bi-cloud-check"></i> Drive ${ultimoSync ? ultimoSync.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' }) : ''}`, 'Conectado a Google Drive');
 }
 
-async function llamarDrive(accion, data) {
-  const r = await fetch(cfg.url, {
-    method:'POST',
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // text/plain evita el preflight CORS
-    body: JSON.stringify({ token:cfg.token, accion, data })
+function estadoSesion() {
+  const b = $('#sesion');
+  if (PUEDE_EDITAR) { b.className = 'badge text-bg-light border'; b.innerHTML = `<i class="bi bi-person-check"></i> ${esc(SESION.name || SESION.user)}`; }
+  else { b.className = 'badge text-bg-warning'; b.innerHTML = '<i class="bi bi-eye"></i> Solo lectura'; }
+}
+
+async function llamarApi(action, extra = {}) {
+  const r = await fetch(URL_EXEC, {
+    method:'POST', // sin Content-Type: va como text/plain y evita el preflight CORS
+    body: JSON.stringify({ action, key:ENV.API_KEY, user:SESION && !SESION.demo ? SESION.user : '', ...extra })
   });
   const j = await r.json();
-  if (!j.ok) throw new Error(j.error || 'Respuesta inválida');
-  return j;
+  if (!j.ok) throw new Error(j.error || 'Respuesta inválida del servidor');
+  return j.data;
 }
 
-/* Modelo de la página → filas de la hoja (rol, área, módulo y nombre completo van también como texto) */
+/* Modelo de la página → filas de la hoja (rol, área, módulo y nombre completo también como texto) */
 function aHojas() {
   return {
     AREAS:   db.areas.map(a => ({ id:a.id, nombre:a.nombre, orden:a.orden ?? '', color:a.color })),
     ROLES:   db.roles.map(r => ({ id:r.id, nombre:r.nombre, id_area:r.areaId ?? '', area:areaDe(r.areaId)?.nombre || '', orden:r.orden ?? '', color:r.color })),
-    MODULOS: db.modulos.map(m => ({ id:m.id, nombre:m.nombre, folder:m.folder || '', orden:m.orden ?? '', color:m.color })),
+    MODULOS: db.modulos.map(m => ({ id:m.id, nombre:m.nombre, folder:m.folder || '', orden:m.orden ?? '', spd:m.spd || '', color:m.color })),
     EMPLEADOS: empleadosOrdenados().map(p => ({ id:p.id, usuario:p.usuario, nombre:p.nombre, paterno:p.paterno, materno:p.materno,
       nombre_completo:nombreCompleto(p), id_rol:p.rolId ?? '', rol:rolDe(p.rolId)?.nombre || '',
       id_area:p.areaId ?? '', area:areaDe(p.areaId)?.nombre || '' })),
@@ -737,80 +753,53 @@ function aHojas() {
   };
 }
 
-/* Filas de la hoja → modelo de la página.
-   Solo se leen los ids y campos propios; las columnas de texto derivadas
-   (rol, area, modulo, nombre_completo) se ignoran y se regeneran al guardar. */
+/* Filas de la hoja → modelo (las columnas de texto derivadas se ignoran y se regeneran al guardar) */
 function deHojas(h) {
   const color = (c, i) => /^#[0-9a-f]{6}$/i.test(c) ? c : PALETA[i % PALETA.length];
   const s = v => String(v ?? '').trim();
   const flag = v => num(v) ?? 0;
   return {
-    areas:   h.AREAS.map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), orden:num(r.orden), color:color(r.color, i) })),
-    roles:   h.ROLES.map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), areaId:num(r.id_area), orden:num(r.orden), color:color(r.color, i) })),
-    modulos: h.MODULOS.map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), folder:s(r.folder), orden:num(r.orden), color:color(r.color, i) })),
-    empleados: h.EMPLEADOS.map(r => emp(num(r.id), s(r.usuario).toUpperCase(), s(r.nombre).toUpperCase(), s(r.paterno).toUpperCase(),
-                                        s(r.materno).toUpperCase(), num(r.id_rol), num(r.id_area))),
-    permisos: h.PERMISOS.map(r => ({ u:num(r.id_usuario), m:num(r.id_modulo), c:flag(r.consultar), i:flag(r.insertar), a:flag(r.actualizar), e:flag(r.eliminar) }))
+    areas:   (h.AREAS || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), orden:num(r.orden), color:color(r.color, i) })),
+    roles:   (h.ROLES || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), areaId:num(r.id_area), orden:num(r.orden), color:color(r.color, i) })),
+    modulos: (h.MODULOS || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), folder:s(r.folder), orden:num(r.orden), spd:s(r.spd), color:color(r.color, i) })),
+    empleados: (h.EMPLEADOS || []).map(r => emp(num(r.id), s(r.usuario).toUpperCase(), s(r.nombre).toUpperCase(), s(r.paterno).toUpperCase(),
+                                                s(r.materno).toUpperCase(), num(r.id_rol), num(r.id_area))),
+    permisos: (h.PERMISOS || []).map(r => ({ u:num(r.id_usuario), m:num(r.id_modulo), c:flag(r.consultar), i:flag(r.insertar), a:flag(r.actualizar), e:flag(r.eliminar) }))
   };
 }
 
-async function guardarDrive(silencioso = false) {
-  if (!cfg.url) return configurarDrive();
-  if (sincronizando) return;
-  const prob = revisarIntegridad();
-  if (prob.length && !silencioso && !confirm(`Hay ${prob.length} problemas de integridad. ¿Guardar de todas formas?`)) return;
+async function guardarDrive() {
+  if (MODO !== 'drive' || !driveListo || !PUEDE_EDITAR) return;
+  if (sincronizando) { otraVez = true; return; }
   sincronizando = true; estadoSync('trabajando');
   try {
-    await llamarDrive('guardar', aHojas());
-    pendiente = false; guardarPref('pendiente', '0'); ultimoSync = new Date(); estadoSync();
-    if (!silencioso) toast('Guardado en Drive');
+    await llamarApi('tableroGuardar', { data:aHojas() });
+    pendiente = false; ultimoSync = new Date(); estadoSync();
   } catch (e) { estadoSync('error'); toast('No se pudo guardar en Drive: ' + e.message); }
-  finally { sincronizando = false; }
+  finally {
+    sincronizando = false;
+    if (otraVez) { otraVez = false; guardarDrive(); }
+  }
 }
 
-async function cargarDrive(preguntar = true) {
-  if (!cfg.url) return configurarDrive();
-  if (preguntar && pendiente && !confirm('Tienes cambios sin subir a Drive. Si cargas, se reemplazarán. ¿Continuar?')) return;
-  estadoSync('trabajando');
+async function cargarDrive({ silencioso = false } = {}) {
+  if (!silencioso) estadoSync('trabajando');
   try {
-    const { data } = await llamarDrive('leer');
-    const vacia = !data || PESTANAS.every(k => !(data[k] || []).length);
-    if (vacia) {
-      estadoSync();
-      if (confirm('La hoja de Drive está vacía. ¿Subir los datos actuales para inicializarla?')) await guardarDrive();
-      return;
+    const data = await llamarApi('tableroLeer');
+    const vacia = !data || ['AREAS','ROLES','MODULOS','EMPLEADOS','PERMISOS'].every(k => !(data[k] || []).length);
+    db = vacia ? VACIO() : deHojas(data);
+    ordenar(); guardarLocal();
+    driveListo = true; pendiente = false; ultimoSync = new Date();
+    render(); estadoSync();
+    if (vacia && PUEDE_EDITAR && !silencioso) toast('La hoja está vacía. Usa Datos → Importar JSON para cargar tus datos.');
+  } catch (e) {
+    estadoSync('error');
+    if (!driveListo) {
+      // Sin datos confiables de Drive no se permite editar (evita sobrescribir la hoja)
+      PUEDE_EDITAR = false; estadoSesion(); render();
     }
-    PESTANAS.forEach(k => data[k] = data[k] || []);
-    db = deHojas(data); ordenar(); guardarLocal();
-    pendiente = false; guardarPref('pendiente', '0'); ultimoSync = new Date();
-    render(); estadoSync(); toast('Datos cargados desde Drive');
-    if (revisarIntegridad().length) mostrarIntegridad();
-  } catch (e) { estadoSync('error'); toast('No se pudo leer Drive: ' + e.message); }
-}
-
-function configurarDrive() {
-  abrirModal('Conexión con Google Drive', `
-    <form id="f" class="row g-2">
-      <div class="col-12"><label class="form-label small">URL de la aplicación web (Apps Script)</label>
-        <input name="url" class="form-control" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.url || '')}"></div>
-      <div class="col-12"><label class="form-label small">Token (el mismo que pusiste en Propiedades del script)</label>
-        <input name="token" type="password" class="form-control" value="${esc(cfg.token || '')}"></div>
-      <div class="col-12 form-check form-switch ms-2">
-        <input class="form-check-input" type="checkbox" name="auto" id="cfgAuto" ${cfg.auto ? 'checked' : ''}>
-        <label class="form-check-label small" for="cfgAuto">Guardar automáticamente en Drive después de cada cambio</label></div>
-      <div class="col-12 small text-muted">La URL y el token se guardan solo en este navegador; no van en el código del repositorio.</div>
-      <button hidden></button>
-    </form>`, {
-    async guardar() {
-      const f = new FormData($('#f'));
-      const url = f.get('url').trim();
-      if (url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) return error('La URL debe terminar en /exec');
-      cfg = { url, token:f.get('token'), auto:!!f.get('auto') };
-      try { localStorage.setItem(STORAGE_KEY + ':drive', JSON.stringify(cfg)); } catch (e) {}
-      estadoSync();
-      if (url) setTimeout(() => cargarDrive(), 300);
-    }
-  });
+    if (!silencioso) toast('No se pudo leer Drive: ' + e.message);
+  }
 }
 
 /* ---------------- Eventos ---------------- */
@@ -825,16 +814,13 @@ $('#chkPend').checked = leerPref('ocultarPend', '1') === '1';
 $('#chkPend').addEventListener('change', e => { guardarPref('ocultarPend', e.target.checked ? '1' : '0'); render(); });
 $('#btnCol').onclick  = () => editarColumna(VISTAS[vista].key, null);
 $('#btnPart').onclick = () => editarEmpleado(null);
-$('#btnDriveGuardar').onclick = () => guardarDrive();
-$('#btnDriveCargar').onclick  = () => cargarDrive();
-$('#btnDriveCfg').onclick     = () => configurarDrive();
-$('#btnInteg').onclick        = () => mostrarIntegridad();
-$('#badgeInteg').onclick      = () => mostrarIntegridad();
+$('#sync').onclick    = () => { if (MODO === 'drive') driveListo ? guardarDrive() : cargarDrive(); };
 
 $('#board').addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act) {
     const sec = act.closest('[data-key]');
+    if (act.dataset.act === 'spd')      return abrirSpd(act, +sec.dataset.id);
     if (act.dataset.act === 'add-col')  return editarColumna(VISTAS[vista].key, null);
     if (act.dataset.act === 'edit-col') return editarColumna(sec.dataset.key, +sec.dataset.id);
   }
@@ -844,14 +830,14 @@ $('#board').addEventListener('click', e => {
 
 // Matriz: dar o quitar acceso completo
 $('#board').addEventListener('change', e => {
-  const c = e.target.closest('input[data-u]'); if (!c) return;
+  const c = e.target.closest('input[data-u]'); if (!c || !PUEDE_EDITAR) return;
   const u = +c.dataset.u, m = +c.dataset.m;
   db.permisos = db.permisos.filter(x => !(x.u === u && x.m === m));
   if (c.checked) db.permisos.push({ u, m, c:1, i:1, a:1, e:1 });
   cambio(); render();
 });
 
-/* ---------------- Exportar / importar / restaurar ---------------- */
+/* ---------------- Importar / exportar / restaurar ---------------- */
 $('#btnExport').onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type:'application/json' }));
   const a = Object.assign(document.createElement('a'), { href:url, download:'tablero-datos.json' });
@@ -865,16 +851,17 @@ $('#fileImport').onchange = e => {
     try {
       const d = JSON.parse(reader.result);
       if (!['areas','roles','modulos','empleados','permisos'].every(k => Array.isArray(d[k]))) throw new Error();
+      const destino = MODO === 'drive' ? 'la hoja de Drive' : 'este navegador';
+      if (!confirm(`Se reemplazarán todos los datos de ${destino} con "${file.name}". ¿Continuar?`)) return;
       db = d; ordenar(); cambio(); render(); toast('Datos importados');
-      if (revisarIntegridad().length) mostrarIntegridad();
     } catch { alert('El archivo no tiene el formato esperado.'); }
-    e.target.value = '';
+    finally { e.target.value = ''; }
   };
   reader.readAsText(file);
 };
 $('#btnReset').onclick = () => {
-  if (!confirm('¿Restaurar los datos iniciales? Se perderán tus cambios locales.')) return;
-  db = structuredClone(INICIAL); ordenar(); cambio(); render(); toast('Datos iniciales restaurados');
+  if (MODO !== 'local' || !confirm('¿Restaurar los datos de demostración? Se perderán tus cambios locales.')) return;
+  db = structuredClone(DEMO); ordenar(); cambio(); render(); toast('Demo restaurada');
 };
 
 /* ---------------- Aviso breve ---------------- */
@@ -883,13 +870,19 @@ function toast(msg) {
   el.className = 'toast align-items-center text-bg-dark border-0 show mb-2';
   el.innerHTML = `<div class="toast-body">${esc(msg)}</div>`;
   $('#toast').appendChild(el);
-  setTimeout(() => el.remove(), 2500);
+  setTimeout(() => el.remove(), 3000);
 }
 
 /* ---------------- Inicio ---------------- */
-render();
+estadoSesion();
 estadoSync();
-if (cfg.url) cargarDrive(true);
+render();
+if (MODO === 'drive') {
+  cargarDrive();
+  // En solo lectura se refresca solo, para ver cambios de quien edita
+  const seg = (ENV && +ENV.REFRESH_SECONDS) || 60;
+  if (!PUEDE_EDITAR) setInterval(() => { if (!document.hidden) cargarDrive({ silencioso:true }); }, seg * 1000);
+}
 </script>
 </body>
 </html>
