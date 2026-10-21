@@ -33,7 +33,7 @@ window.ENV = {
   //   estado: 'activo' | 'proximamente'
   PAGINAS: [
     { titulo: 'Cuadernos',            url: 'paginas/cuadernos.html',   icono: 'bi-journal-bookmark', estado: 'activo',       descripcion: 'Cuadernos del equipo' },
-    { titulo: 'Reportes',             url: 'paginas/reportes.html',    icono: 'bi-file-earmark-bar-graph', estado: 'proximamente' },
+    { titulo: 'Tablero Areas',        url: 'paginas/tableros.html',    icono: 'bi-file-earmark-bar-graph', estado: 'activo' },
     { titulo: 'Base de conocimiento', url: 'paginas/conocimiento.html', icono: 'bi-lightbulb',        estado: 'proximamente' },
     { titulo: 'Calendario',           url: 'paginas/calendario.html',  icono: 'bi-calendar-week',    estado: 'proximamente' }
   ],
