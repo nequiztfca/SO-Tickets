@@ -8,11 +8,13 @@ window.ENV = {
 
   // URL del Web App de Google Apps Script (termina en /exec).
   // Mientras diga "PEGA_AQUI..." el sistema funciona en MODO DEMO
+  
   // (datos guardados solo en este navegador) para que puedas probarlo.
   API_URL: 'https://script.google.com/macros/s/AKfycbybuT-30foyKlw33guip4oQkueA4tzWC9PYIxi0jTIPOIy9S9IAS0DZeHYCIerzzcuQ/exec',
+  API_KEY: 'tfca-2026-cambia-esta-clave',   // Debe ser IGUAL a CFG.API_KEY en Code.gs
 
-  // Debe ser IGUAL a CFG.API_KEY en Code.gs
-  API_KEY: 'tfca-2026-cambia-esta-clave',
+  TABLERO_API_URL: 'https://script.google.com/macros/s/AKfycbxsq8pTqvG2cllL5wuZ99ZIac88VhqUbx33vFPf5sHyxaKokNP53IiPUSNJIz6UgimXqQ/exec',
+  TABLERO_API_KEY: 'la-misma-clave-que-CFG.API_KEY-del-tablero',
 
   SESSION_DAYS: 3,        // días que dura la sesión en localStorage
   CLOSED_VISIBLE: 20,     // cerrados visibles en el tablero (el resto se agrupa)
