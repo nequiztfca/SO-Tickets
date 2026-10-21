@@ -14,7 +14,7 @@ window.ENV = {
   API_KEY: 'tfca-2026-cambia-esta-clave',   // Debe ser IGUAL a CFG.API_KEY en Code.gs
 
   TABLERO_API_URL: 'https://script.google.com/macros/s/AKfycbxsq8pTqvG2cllL5wuZ99ZIac88VhqUbx33vFPf5sHyxaKokNP53IiPUSNJIz6UgimXqQ/exec',
-  TABLERO_API_KEY: 'la-misma-clave-que-CFG.API_KEY-del-tablero',
+  TABLERO_API_KEY: 'tfca-tablero-2026',
 
   SESSION_DAYS: 3,        // días que dura la sesión en localStorage
   CLOSED_VISIBLE: 20,     // cerrados visibles en el tablero (el resto se agrupa)
