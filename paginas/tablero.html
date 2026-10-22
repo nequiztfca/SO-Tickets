@@ -50,12 +50,24 @@
   .prow { display:grid; grid-template-columns:44px 125px 52px 1fr 1.3fr; border-bottom:1px solid var(--line); }
   .prow > div { padding:4px 6px; border-right:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .prow > div:last-child { border-right:0; }
-  .c-perm { display:none; }
+  .c-perm { display:none; align-items:center; }
   .compacto .c-usuario, .compacto .c-idrol { display:none; }
   .compacto .prow { grid-template-columns:44px 1fr 1.2fr; }
   .con-perm .c-usuario, .con-perm .c-idrol { display:none; }
-  .con-perm .c-perm { display:block; }
-  .con-perm .prow, .compacto .con-perm .prow { grid-template-columns:40px 1fr 1.4fr 90px; }
+  .con-perm .c-perm { display:flex; }
+  .con-perm .prow, .compacto .con-perm .prow { grid-template-columns:40px 1fr 1.4fr 112px; }
+
+  /* Quitar persona de un módulo (aparece al pasar el mouse) */
+  .btn-quitar { margin-left:auto; border:0; background:transparent; color:#c62828; padding:0 4px; line-height:1; opacity:0; }
+  .prow:hover .btn-quitar, .btn-quitar:focus-visible { opacity:1; }
+  @media (hover:none) { .btn-quitar { opacity:.7; } }
+
+  /* Listas de selección en modales (personas / módulos) */
+  .lista-sel { max-height:55vh; overflow:auto; }
+  .sel-head { position:sticky; top:0; z-index:1; background:color-mix(in srgb, var(--a) 18%, #fff); border-left:4px solid var(--a); cursor:pointer; }
+  .item-sel { cursor:pointer; border-bottom:1px solid #f0f2f4; }
+  .item-sel:hover { background:#f6f9fc; }
+  .chip.parcial { opacity:.75; border-style:dashed; }
 
   .phead { background:#e8f5e9; color:var(--verde); font-weight:700; position:sticky; top:0; z-index:1; }
   .prow:not(.phead) { background:#fff; }
@@ -308,9 +320,9 @@ const VISTAS = {
   areas:   { key:'area',   coleccion:()=>db.areas,   campo:'areaId', nuevo:'Área',
              hint:'Arrastra filas entre columnas para cambiar de área · ⋮⋮ reordena columnas · clic en una fila para editar.' },
   modulos: { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Cada módulo se divide por área · ⋮⋮ reordena módulos · arrastra una persona a otro módulo para darle acceso · ícono de base de datos = SPD.' },
+             hint:'Ícono de persona en el encabezado = agregar o quitar personas · ✕ en una fila = quitar acceso · arrastra a otro módulo para dar acceso · ⋮⋮ reordena · ícono de base de datos = SPD.' },
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
-             hint:'Arrastra filas entre columnas para cambiar el rol de una persona.' },
+             hint:'Arrastra filas para cambiar el rol de una persona · "Módulos" da o quita módulos a todas las personas del rol.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
@@ -336,7 +348,8 @@ function fila(p, { drag = false, modulo = null } = {}) {
     <div class="c-idrol text-end">${p.rolId ?? '—'}</div>
     <div class="c-rol" title="${esc(rol?.nombre)}">${esc(rol?.nombre || 'SIN ROL')}</div>
     <div class="c-nombre" title="${esc(nc)} · ${esc(area?.nombre || 'Sin área')}"><span class="dot" style="background:${area?.color || '#b0bec5'}"></span>${esc(nc || '(SIN DATOS DE EMPLEADO)')}</div>
-    <div class="c-perm">${modulo ? badgesPermiso(permiso(p.id, modulo)) : ''}</div>
+    <div class="c-perm">${modulo ? badgesPermiso(permiso(p.id, modulo)) +
+      (PUEDE_EDITAR ? `<button class="btn-quitar" data-act="quitar" data-m="${modulo}" title="Quitar de este módulo"><i class="bi bi-x-lg"></i></button>` : '') : ''}</div>
   </div>`;
 }
 
@@ -402,6 +415,7 @@ function htmlModulos(lista) {
         <button class="btn btn-sm btn-link btn-spd ${m.spd ? 'tiene' : ''}" data-act="spd" title="${m.spd ? 'SPD: ' + esc(m.spd) : 'SPD (opcional)'}">
           <i class="bi ${m.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
         <span class="badge bg-light text-dark">${gente.length}</span>
+        ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
       </header>
       <div class="mod-cols">${cols}</div>
@@ -470,8 +484,20 @@ function render() {
   else { // roles
     cols = db.roles.map(r => {
       const a = areaDe(r.areaId);
+      // Módulos del rol = módulos que tienen sus personas (completo o parcial)
+      const miembros = db.empleados.filter(p => p.rolId === r.id);
+      const chips = db.modulos.map(m => {
+        const n = miembros.filter(p => permiso(p.id, m.id)).length;
+        if (!n) return '';
+        const todos = n === miembros.length;
+        return `<span class="chip ${todos ? '' : 'parcial'}" style="--c:${m.color}" title="${n} de ${miembros.length} personas del rol">${esc(m.nombre)}${todos ? '' : ` ${n}/${miembros.length}`}</span>`;
+      }).join('');
       const extra = `<div class="px-2 py-1 border-bottom small text-muted">Área del rol:
-        ${a ? `<span class="chip" style="--c:${a.color}">${esc(a.nombre)}</span>` : 'sin área'}</div>`;
+        ${a ? `<span class="chip" style="--c:${a.color}">${esc(a.nombre)}</span>` : 'sin área'}</div>
+        <div class="px-2 py-2 border-bottom d-flex flex-wrap gap-1 align-items-center">
+          ${chips || '<span class="small text-muted">Sin módulos</span>'}
+          ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link p-0 ms-auto" data-act="modulos-rol" title="Dar o quitar módulos a todo el rol"><i class="bi bi-sliders"></i> Módulos</button>` : ''}
+        </div>`;
       return columna({ key:'rol', id:r.id, titulo:`${r.id} · ${r.nombre}`, color:r.color, orden:r.orden,
         lista: lista.filter(p => p.rolId === r.id), drag:true, extra });
     });
@@ -507,6 +533,7 @@ function initSortable() {
       const modId = +el.dataset.col;
       Sortable.create(el, {
         group:{ name:'mod', pull:'clone', put:true }, sort:false, animation:150,
+        filter:'.btn-quitar', preventOnFilter:false,
         onAdd(e) {
           const u = +e.item.dataset.pid; e.item.remove();
           if (permiso(u, modId)) { toast('Ya tenía acceso a ese módulo'); render(); return; }
@@ -576,7 +603,9 @@ function abrirModal(titulo, cuerpo, acc, { grande = false } = {}) {
   acciones = acc;
   modalEl.querySelector('.modal-dialog').classList.toggle('modal-lg', grande);
   modalEl.querySelector('.modal-title').textContent = titulo;
-  modalEl.querySelector('.modal-body').innerHTML = cuerpo;
+  const body = modalEl.querySelector('.modal-body');
+  body.innerHTML = cuerpo;
+  body.onchange = body.oninput = null; // cada modal registra los suyos
   $('#mError').textContent = '';
   $('#mEliminar').classList.toggle('d-none', !acc.eliminar);
   modal.show();
@@ -647,6 +676,133 @@ function editarEmpleado(p) {
       cambio(); render(); toast('Empleado eliminado');
     }
   }, { grande:true });
+}
+
+/* ---------------- Asignaciones rápidas (solo con sesión) ---------------- */
+const PERM_COMPLETO = (u, m) => ({ u, m, c:1, i:1, a:1, e:1 });
+function restaurarPermisos(antes) { db.permisos = antes; cambio(); render(); toast('Cambio deshecho'); }
+
+/* ✕ en una fila de la vista Módulos */
+function quitarDeModulo(u, modId) {
+  if (!PUEDE_EDITAR) return;
+  const antes = structuredClone(db.permisos);
+  db.permisos = db.permisos.filter(x => !(x.u === u && x.m === modId));
+  cambio(); render();
+  toast(`${nombreCompleto(empDe(u)) || 'Usuario ' + u} ya no tiene acceso a ${modDe(modId).nombre}`, { deshacer:() => restaurarPermisos(antes) });
+}
+
+/* Vista Módulos: agregar o quitar personas de un módulo */
+function asignarPersonas(modId) {
+  if (!PUEDE_EDITAR) return;
+  const m = modDe(modId);
+  const lista = empleadosOrdenados();
+  const grupos = [...db.areas.map(a => ({ a, gente:lista.filter(p => p.areaId === a.id) })),
+                  { a:null, gente:lista.filter(p => !areaDe(p.areaId)) }].filter(g => g.gente.length);
+  const html = grupos.map(g => `
+    <div data-grupo>
+      <label class="sel-head d-flex align-items-center gap-2 fw-semibold small py-1 px-2" style="--a:${g.a?.color || '#90a4ae'}">
+        <input type="checkbox" class="form-check-input m-0" data-todos> ${esc(g.a?.nombre || 'SIN ÁREA')}
+        <span class="badge text-bg-light ms-auto">${g.gente.length}</span>
+      </label>
+      ${g.gente.map(p => `
+        <label class="item-sel d-flex align-items-center gap-2 small py-1 px-3"
+               data-texto="${esc(`${p.id} ${p.usuario} ${nombreCompleto(p)} ${rolDe(p.rolId)?.nombre || ''}`.toLowerCase())}">
+          <input type="checkbox" class="form-check-input m-0" name="u" value="${p.id}" ${permiso(p.id, modId) ? 'checked' : ''}>
+          <span class="text-muted" style="width:42px">${p.id}</span>
+          <span class="flex-grow-1 text-truncate ${nombreCompleto(p) ? '' : 'fst-italic text-muted'}">${esc(nombreCompleto(p) || '(SIN DATOS DE EMPLEADO)')}</span>
+          <span class="text-muted text-truncate" style="max-width:40%">${esc(rolDe(p.rolId)?.nombre || 'SIN ROL')}</span>
+        </label>`).join('')}
+    </div>`).join('');
+
+  abrirModal(`Personas con acceso a "${m.nombre}"`, `
+    <form id="f">
+      <input class="form-control form-control-sm mb-2" id="fBuscar" placeholder="Buscar por ID, usuario, nombre o rol…" autocomplete="off">
+      <div class="lista-sel border rounded">${html || '<div class="p-3 small text-muted">No hay empleados registrados.</div>'}</div>
+      <div class="small text-muted mt-2">Las personas que agregues reciben todos los permisos (C·I·A·E); ajústalos desde la ficha de cada persona.</div>
+      <button hidden></button>
+    </form>`, {
+    guardar() {
+      const sel = new Set([...modalEl.querySelectorAll('[name="u"]:checked')].map(c => +c.value));
+      const antes = structuredClone(db.permisos);
+      const agregar = db.empleados.filter(p => sel.has(p.id) && !permiso(p.id, modId));
+      const quitar = new Set(db.empleados.filter(p => !sel.has(p.id) && permiso(p.id, modId)).map(p => p.id));
+      if (!agregar.length && !quitar.size) return;
+      db.permisos = db.permisos.filter(x => !(x.m === modId && quitar.has(x.u))).concat(agregar.map(p => PERM_COMPLETO(p.id, modId)));
+      cambio(); render();
+      toast(`${m.nombre}: +${agregar.length} / −${quitar.size} personas`, { deshacer:() => restaurarPermisos(antes) });
+    }
+  }, { grande:true });
+
+  // "Todos" por área + buscador
+  const body = modalEl.querySelector('.modal-body');
+  const visibles = g => [...g.querySelectorAll('[name="u"]')].filter(c => !c.closest('.item-sel').classList.contains('d-none'));
+  const sync = g => {
+    const cs = visibles(g), n = cs.filter(c => c.checked).length, t = g.querySelector('[data-todos]');
+    t.checked = cs.length > 0 && n === cs.length; t.indeterminate = n > 0 && n < cs.length;
+  };
+  body.querySelectorAll('[data-grupo]').forEach(sync);
+  body.onchange = e => {
+    const g = e.target.closest('[data-grupo]'); if (!g) return;
+    if (e.target.matches('[data-todos]')) visibles(g).forEach(c => c.checked = e.target.checked);
+    sync(g);
+  };
+  body.oninput = e => {
+    if (e.target.id !== 'fBuscar') return;
+    const q = e.target.value.trim().toLowerCase();
+    body.querySelectorAll('[data-grupo]').forEach(g => {
+      g.querySelectorAll('.item-sel').forEach(it => it.classList.toggle('d-none', !!q && !it.dataset.texto.includes(q)));
+      g.classList.toggle('d-none', !visibles(g).length);
+      sync(g);
+    });
+  };
+}
+
+/* Vista Roles: dar o quitar módulos a todas las personas del rol */
+function asignarModulosRol(rolId) {
+  if (!PUEDE_EDITAR) return;
+  const r = rolDe(rolId);
+  const miembros = db.empleados.filter(p => p.rolId === rolId);
+  if (!miembros.length) return toast('Este rol no tiene personas. Arrastra personas al rol primero.');
+  const filas = db.modulos.map(m => {
+    const n = miembros.filter(p => permiso(p.id, m.id)).length;
+    return `<label class="item-sel d-flex align-items-center gap-2 small py-1 px-2">
+      <input type="checkbox" class="form-check-input m-0" name="m" value="${m.id}" data-n="${n}" ${n === miembros.length ? 'checked' : ''}>
+      <span class="dot" style="background:${m.color}"></span>
+      <span class="flex-grow-1">${m.id} · ${esc(m.nombre)}</span>
+      <span class="badge ${n === miembros.length ? 'text-bg-success' : n ? 'text-bg-warning' : 'text-bg-light'}" title="Personas del rol con este módulo">${n}/${miembros.length}</span>
+    </label>`;
+  }).join('');
+
+  abrirModal(`Módulos del rol "${r.nombre}"`, `
+    <form id="f">
+      <div class="small mb-2">Se aplica a las <b>${miembros.length}</b> personas de este rol:
+        <span class="text-muted">${miembros.map(p => esc(nombreCompleto(p) || 'Usuario ' + p.id)).join(', ')}</span></div>
+      <div class="lista-sel border rounded">${filas}</div>
+      <div class="small text-muted mt-2">
+        <b>Marcado</b>: todos lo tienen · <b>Vacío</b>: nadie lo tiene · <b>Guion</b>: solo algunos (si no lo tocas, se respeta).
+        Los accesos nuevos van con todos los permisos (C·I·A·E).
+      </div>
+      <button hidden></button>
+    </form>`, {
+    guardar() {
+      const antes = structuredClone(db.permisos);
+      let mas = 0, menos = 0;
+      modalEl.querySelectorAll('[name="m"]').forEach(c => {
+        if (c.indeterminate) return; // parcial y sin tocar: se deja igual
+        const mId = +c.value;
+        miembros.forEach(p => {
+          const tiene = !!permiso(p.id, mId);
+          if (c.checked && !tiene) { db.permisos.push(PERM_COMPLETO(p.id, mId)); mas++; }
+          if (!c.checked && tiene) { db.permisos = db.permisos.filter(x => !(x.u === p.id && x.m === mId)); menos++; }
+        });
+      });
+      if (!mas && !menos) return;
+      cambio(); render();
+      toast(`${r.nombre}: +${mas} / −${menos} accesos`, { deshacer:() => restaurarPermisos(antes) });
+    }
+  });
+  // Los módulos que solo tienen algunas personas se muestran con guion
+  modalEl.querySelectorAll('[name="m"]').forEach(c => { const n = +c.dataset.n; c.indeterminate = n > 0 && n < miembros.length; });
 }
 
 function editarColumna(key, id) {
@@ -827,6 +983,9 @@ $('#board').addEventListener('click', e => {
   if (act) {
     const sec = act.closest('[data-key]');
     if (act.dataset.act === 'spd')      return abrirSpd(act, +sec.dataset.id);
+    if (act.dataset.act === 'quitar')   return quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
+    if (act.dataset.act === 'personas') return asignarPersonas(+sec.dataset.id);
+    if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
     if (act.dataset.act === 'add-col')  return editarColumna(VISTAS[vista].key, null);
     if (act.dataset.act === 'edit-col') return editarColumna(sec.dataset.key, +sec.dataset.id);
   }
@@ -871,12 +1030,14 @@ $('#btnReset').onclick = () => {
 };
 
 /* ---------------- Aviso breve ---------------- */
-function toast(msg) {
+function toast(msg, { deshacer } = {}) {
   const el = document.createElement('div');
   el.className = 'toast align-items-center text-bg-dark border-0 show mb-2';
-  el.innerHTML = `<div class="toast-body">${esc(msg)}</div>`;
+  el.innerHTML = `<div class="d-flex align-items-center"><div class="toast-body">${esc(msg)}</div>
+    ${deshacer ? '<button type="button" class="btn btn-sm btn-link text-warning fw-semibold me-2" data-deshacer>Deshacer</button>' : ''}</div>`;
+  if (deshacer) el.querySelector('[data-deshacer]').onclick = () => { el.remove(); deshacer(); };
   $('#toast').appendChild(el);
-  setTimeout(() => el.remove(), 3000);
+  setTimeout(() => el.remove(), deshacer ? 7000 : 3000);
 }
 
 /* ---------------- Inicio ---------------- */
