@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tablero de Accesos</title>
+<title>Tablero de Accesos TFCA</title>
 <!-- Dependencias por CDN -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -55,7 +55,16 @@
   .compacto .prow { grid-template-columns:44px 1fr 1.2fr; }
   .con-perm .c-usuario, .con-perm .c-idrol { display:none; }
   .con-perm .c-perm { display:flex; }
-  .con-perm .prow, .compacto .con-perm .prow { grid-template-columns:40px 1fr 1.4fr 112px; }
+  /* Vista Módulos: sin permisos visibles, solo la columna de la ✕ (con sesión) */
+  .con-perm .prow, .compacto .con-perm .prow { grid-template-columns:40px 1fr 1.4fr 30px; }
+  body:not(.editable) .con-perm .prow { grid-template-columns:40px 1fr 1.4fr; }
+  body:not(.editable) .con-perm .c-perm { display:none; }
+  .con-perm .c-perm { padding:0 !important; justify-content:center; }
+
+  /* Vista Roles: módulos colapsados */
+  .btn-mods { font-size:.75rem; padding:0 4px; text-decoration:none; }
+  .btn-mods .bi-chevron-right { transition:transform .15s; display:inline-block; }
+  .btn-mods.abierto .bi-chevron-right { transform:rotate(90deg); }
 
   /* Quitar persona de un módulo (aparece al pasar el mouse) */
   .btn-quitar { margin-left:auto; border:0; background:transparent; color:#c62828; padding:0 4px; line-height:1; opacity:0; }
@@ -105,13 +114,44 @@
   body:not(.editable) .solo-edicion { display:none !important; }
 
   #toast { position:fixed; bottom:16px; right:16px; z-index:2000; }
+
+  /* ---------- Menú común con Sistemas y Módulos ---------- */
+  .tb-brand { display:flex; align-items:center; gap:8px; font-weight:700; color:#1f1a1c; text-decoration:none; white-space:nowrap; }
+  .tb-brand b { color:#8a1c3b; }
+  .tb-mark { width:28px; height:28px; border-radius:7px; background:#8a1c3b; color:#fff; display:grid; place-items:center; font-size:.9rem; }
+  .tb-nav { display:flex; gap:2px; margin-right:6px; }
+  .tb-nav a { color:#6d6266; text-decoration:none; font-size:.86rem; font-weight:600; padding:4px 10px; border-radius:7px; }
+  .tb-nav a:hover { background:#efe9eb; color:#1f1a1c; }
+  .tb-nav a.on { color:#8a1c3b; background:#f4e3e8; }
+
+  /* ---------- Acceso: sin sesión es solo lectura; el formulario se abre con "Login" ---------- */
+  .gate-abierto #vistas, .gate-abierto #buscar, .gate-abierto .form-switch, .gate-abierto #sync,
+  .gate-abierto .solo-edicion, .gate-abierto #board, .gate-abierto #barra-info { display:none !important; }
+  #gate { display:grid; place-items:center; padding:8vh 16px 40px; }
+  .gate-box { width:100%; max-width:400px; background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
+  .gate-box h2 { font-size:1.3rem; font-weight:700; margin:12px 0 6px; }
+
+  /* ---------- Subsistemas (compartidos con Sistemas y Módulos) ---------- */
+  .subs-bar { display:flex; align-items:center; gap:6px; padding:2px 8px; border-bottom:1px solid var(--line); font-size:.78rem; color:#6b7785; }
+  .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
+  .chip-sub:disabled { cursor:default; }
+  .folder-tag { font-family:ui-monospace, Consolas, monospace; font-size:.7rem; background:rgba(255,255,255,.25); border-radius:4px; padding:1px 5px; }
+
+  /* ---------- Confirmación dentro de la página ---------- */
+  .cfm { position:fixed; inset:0; z-index:3000; background:rgba(15,20,25,.5); display:grid; place-items:center; padding:16px; }
+  .cfm-box { background:#fff; border-radius:12px; padding:20px; max-width:440px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.2); }
 </style>
 </head>
 <body>
 
 <!-- ================= Barra superior ================= -->
 <header class="bg-white border-bottom px-3 py-2 d-flex flex-wrap gap-2 align-items-center">
-  <h1 class="h5 m-0 me-2 text-success"><i class="bi bi-kanban"></i> Tablero de accesos</h1>
+  <a class="tb-brand" href="areas.html" title="Sistemas y Módulos TFCA"><span class="tb-mark"><i class="bi bi-layers"></i></span>Accesos <b>TFCA</b></a>
+  <!-- Mismo menú que Sistemas y Módulos -->
+  <nav class="tb-nav" aria-label="Secciones">
+    <a href="areas.html">Sistemas</a><a href="areas.html#historico">Histórico</a><a href="tablero.html" class="on" aria-current="page">Accesos</a>
+  </nav>
 
   <div class="btn-group btn-group-sm" id="vistas" role="group" aria-label="Vistas">
     <button class="btn btn-outline-success" data-vista="areas"><i class="bi bi-diagram-3"></i> Áreas</button>
@@ -131,7 +171,8 @@
   </div>
 
   <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
-    <span id="sesion" class="badge"></span>
+    <span id="hoy" class="small text-muted d-none d-lg-inline"></span>
+    <div id="sesion"></div>
     <span id="sync" class="badge" role="button"></span>
     <button id="btnCol" class="btn btn-sm btn-success solo-edicion"></button>
     <button id="btnPart" class="btn btn-sm btn-outline-success solo-edicion"><i class="bi bi-person-plus"></i> Empleado</button>
@@ -147,10 +188,26 @@
   </div>
 </header>
 
-<div class="px-3 pt-2 d-flex flex-wrap justify-content-between gap-2 small text-muted">
+<div class="px-3 pt-2 d-flex flex-wrap justify-content-between gap-2 small text-muted" id="barra-info">
   <span id="hint"></span>
   <span id="resumen"></span>
 </div>
+
+<!-- Acceso para editar (sin sesión el tablero se ve en solo lectura). Es la misma sesión de Sistemas. -->
+<section id="gate" hidden>
+  <form class="gate-box" id="gateForm" autocomplete="on">
+    <span class="tb-mark" style="width:42px;height:42px;font-size:1.2rem"><i class="bi bi-person-lock"></i></span>
+    <h2>Tablero de accesos</h2>
+    <p class="small text-muted">Inicia sesión para editar áreas, roles, empleados y permisos. Sin sesión el tablero se ve en solo lectura. La sesión es la misma de Sistemas y Módulos.</p>
+    <label class="form-label small" for="gUser">Usuario</label>
+    <input class="form-control mb-2" id="gUser" autocomplete="username" required>
+    <label class="form-label small" for="gPass">Contraseña</label>
+    <input class="form-control" id="gPass" type="password" autocomplete="current-password" required>
+    <div class="text-danger small mt-2" id="gErr" hidden>Usuario o contraseña incorrectos. Revisa mayúsculas y símbolos.</div>
+    <button class="btn btn-success w-100 mt-3" type="submit">Entrar</button>
+    <button class="btn btn-link w-100 mt-1" type="button" id="gateCancelar">Seguir en solo lectura</button>
+  </form>
+</section>
 
 <main id="board" class="board"></main>
 
@@ -173,41 +230,59 @@
 <div id="toast"></div>
 <input type="file" id="fileImport" accept=".json,application/json" hidden>
 
-<!-- config.js del sistema de tickets: de aquí se leen la sesión (USERS),
-     TABLERO_API_URL y TABLERO_API_KEY. NO se carga core.js ni el menú. -->
+<!-- config.js del proyecto: USERS (sesión), SISTEMAS_API_URL y SISTEMAS_API_KEY.
+     Es el mismo /exec que usa Sistemas y Módulos (un solo Apps Script y una sola hoja). -->
 <script src="../js/config.js"></script>
+<!-- Catálogo de sistemas y subsistemas: solo para el modo demo (sin /exec) -->
+<script src="catalogo_sistemas.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 /* =====================================================================
    MODO DE TRABAJO (automático)
-   El tablero usa SU PROPIO Apps Script y SU PROPIA hoja (no el de tickets).
-   - URL: ENV.TABLERO_API_URL (config.js); si no existe, TABLERO_API_URL_DEFAULT.
-   - Clave: ENV.TABLERO_API_KEY (config.js) = CFG.API_KEY del Code.gs del tablero.
+   Un solo Apps Script y una sola hoja para Tablero + Sistemas y Módulos.
+   - URL:   ENV.SISTEMAS_API_URL (js/config.js) · Clave: ENV.SISTEMAS_API_KEY
    - Si la URL es un /exec válido → DRIVE: carga al abrir y guarda cada cambio.
-   - Si no → LOCAL: los datos se guardan en este navegador.
-   PERMISOS
-   - Con sesión válida del sistema de tickets (localStorage "tfca_session")
-     → puede editar. Sin sesión → solo vista.
+   - Si no → LOCAL: los datos se guardan en este navegador (y se comparten
+     sistemas y subsistemas con Sistemas y Módulos abierto en el mismo navegador).
+   ACCESO
+   - Sin sesión: solo lectura. Con sesión (localStorage "tfca_session", la misma de
+     Sistemas y Módulos) se puede editar.
+   COMPARTIDO CON SISTEMAS Y MÓDULOS
+   - "Módulos" del tablero = hoja Sistemas (id, nombre, folder, orden, spd, color)
+   - Subsistemas de cada módulo = hoja Modulos
+   - Áreas, Roles, Empleados y Permisos son propios del tablero.
    ===================================================================== */
-const TABLERO_API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxsq8pTqvG2cllL5wuZ99ZIac88VhqUbx33vFPf5sHyxaKokNP53IiPUSNJIz6UgimXqQ/exec';
 const ENV = window.ENV || null;
 const SESSION_KEY = 'tfca_session';
+const SESSION_DAYS = (ENV && +ENV.SESSION_DAYS) || 3;
+// Respaldo si la página se abre sin js/config.js (mismos usuarios del proyecto)
+const USERS_RESPALDO = [
+  { user:'nexNekiz@',  pass:'Tfca2026!', name:'nekiz',     role:'admin' },
+  { user:'Brandom12@', pass:'Tfca2026!', name:'Brandom',   role:'user' },
+  { user:'Edd234',     pass:'Tfca2026!', name:'Edwin',     role:'user' },
+  { user:'nantoree:)', pass:'Tfca2026!', name:'Nancy',     role:'user' },
+  { user:'usuario5',   pass:'Tfca2026!', name:'Usuario 5', role:'user' }
+];
+const USERS = ENV && Array.isArray(ENV.USERS) && ENV.USERS.length ? ENV.USERS : USERS_RESPALDO;
 const esExec = u => /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(String(u || '').trim());
-// Sin config.js (página abierta fuera del proyecto) siempre es demo local
-const URL_EXEC = ENV && esExec(ENV.TABLERO_API_URL || TABLERO_API_URL_DEFAULT) ? String(ENV.TABLERO_API_URL || TABLERO_API_URL_DEFAULT).trim() : '';
-const API_KEY_TABLERO = ENV ? (ENV.TABLERO_API_KEY || '') : '';
+const URL_EXEC = ENV && esExec(ENV.SISTEMAS_API_URL) ? String(ENV.SISTEMAS_API_URL).trim() : '';
+const API_KEY_TABLERO = (ENV && ENV.SISTEMAS_API_KEY) || 'tfca-sistemas-2026-cambia-esta-clave';
 const MODO = URL_EXEC ? 'drive' : 'local';
 
 function sesionActual() {
-  if (!ENV) return { user:'demo', name:'Demo', role:'admin', demo:true }; // abierto fuera del proyecto: demo editable
   try {
     const s = JSON.parse(localStorage.getItem(SESSION_KEY));
     if (!s || !s.exp || Date.now() > s.exp) return null;
-    // La sesión debe pertenecer a un usuario declarado en config.js
-    if (Array.isArray(ENV.USERS) && !ENV.USERS.some(u => u.user === s.user)) return null;
+    if (!USERS.some(u => u.user === s.user)) return null;   // debe ser un usuario del proyecto
     return s;
   } catch (e) { return null; }
+}
+function iniciarSesion(user, pass) {
+  const u = USERS.find(x => x.user === String(user).trim() && x.pass === pass);
+  if (!u) return false;
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ user:u.user, name:u.name, role:u.role || 'user', exp:Date.now() + SESSION_DAYS * 864e5 })); } catch (e) { return false; }
+  return true;
 }
 const SESION = sesionActual();
 let PUEDE_EDITAR = !!SESION;
@@ -218,11 +293,14 @@ let PUEDE_EDITAR = !!SESION;
      EMPLEADOS N >──< M MODULOS (PERMISOS: id_usuario + id_modulo, par único)
    "orden" (áreas, roles, módulos) solo acomoda columnas; nunca cambia ids.
    "spd" (módulos) es opcional y se ve como popover en la vista Módulos.
+   Los módulos (sistemas) y sus subsistemas se guardan en las hojas compartidas;
+   aquí solo se conservan en memoria (db.modulos, db.subs).
    ===================================================================== */
 const STORAGE_KEY = 'tablero-accesos-v4:' + MODO;
 const PALETA = ['#2e7d32','#1565c0','#6a1b9a','#ef6c00','#00838f','#c62828','#4e342e','#283593','#ad1457','#5d4037','#00695c','#827717','#37474f','#6d4c41','#0277bd'];
 const FLAGS = [['c','consultar','C'],['i','insertar','I'],['a','actualizar','A'],['e','eliminar','E']];
-const VACIO = () => ({ areas:[], roles:[], modulos:[], empleados:[], permisos:[] });
+const VACIO = () => ({ areas:[], roles:[], modulos:[], subs:[], cardsPorSub:{}, empleados:[], permisos:[] });
+const PROPIOS = ['areas', 'roles', 'empleados', 'permisos'];       // lo que guarda el tablero
 
 const emp = (id, usuario, nombre, paterno, materno, rolId, areaId) => ({ id, usuario, nombre, paterno, materno, rolId, areaId });
 
@@ -242,13 +320,7 @@ const DEMO = {
     { id:4, nombre:'REVISOR',            areaId:2,    orden:4, color:'#1565c0' },
     { id:5, nombre:'ARCHIVISTA',         areaId:3,    orden:5, color:'#6a1b9a' }
   ],
-  modulos: [
-    { id:1, nombre:'RECEPCIÓN',      folder:'RECEPCION', orden:1, spd:'SP_DEMO_RECEPCION', color:'#2e7d32' },
-    { id:2, nombre:'REVISIÓN',       folder:'REVISION',  orden:2, spd:'',                  color:'#1565c0' },
-    { id:3, nombre:'ARCHIVO',        folder:'ARCHIVO',   orden:3, spd:'SP_DEMO_ARCHIVO',   color:'#b8860b' },
-    { id:4, nombre:'REPORTES',       folder:'REPORTES',  orden:4, spd:'',                  color:'#283593' },
-    { id:5, nombre:'ADMINISTRACIÓN', folder:'ADMIN',     orden:5, spd:'',                  color:'#c62828' }
-  ],
+  // Los módulos son los sistemas de catalogo_sistemas.js (compartidos con Sistemas y Módulos)
   empleados: [
     emp(101, 'DEMO001', 'ANA',    'PÉREZ',    'LÓPEZ',   2, 1),
     emp(102, 'DEMO002', 'LUIS',   'GARCÍA',   'RUIZ',    3, 1),
@@ -272,23 +344,86 @@ const DEMO = {
 };
 
 /* ---------------- Estado y persistencia local ---------------- */
-let db = cargarLocal();
+let db = VACIO();                 // se carga al iniciar (ver "Inicio")
 let vista = leerPref('vista', 'modulos');
 let filtro = '';
-ordenar();
+const rolesAbiertos = new Set(); // roles con los módulos desplegados (vista Roles)
 
 function cargarLocal() {
-  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return MODO === 'local' ? structuredClone(DEMO) : VACIO();
+  let d = null;
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) d = JSON.parse(raw); } catch (e) {}
+  if (!d) d = MODO === 'local' ? structuredClone(DEMO) : VACIO();
+  const base = VACIO();
+  PROPIOS.forEach(k => { base[k] = Array.isArray(d[k]) ? d[k] : []; });
+  return Object.assign(base, MODO === 'local' ? catalogoLocal() : {});
 }
-function guardarLocal() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch (e) {} }
+/** Solo se guardan las colecciones propias del tablero (módulos y subsistemas viven en Sistemas) */
+function guardarLocal() {
+  const propios = {}; PROPIOS.forEach(k => { propios[k] = db[k]; });
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(propios)); } catch (e) {}
+}
+
+/* ---------- Catálogo compartido en modo demo (mismo navegador que Sistemas y Módulos) ---------- */
+const SIS_LOCAL_KEY = 'tfca_sistemas_demo_v2';
+function leerSisLocal() {
+  try { const d = JSON.parse(localStorage.getItem(SIS_LOCAL_KEY)); if (d && Array.isArray(d.sistemas)) return d; } catch (e) {}
+  const c = window.CATALOGO_SISTEMAS || { sistemas:[], subsistemas:[] };
+  return { origen:'tablero', sistemas:c.sistemas.map(x => ({ descripcion:'', ...x })), modulos:c.subsistemas.map(x => ({ ...x })),
+           cards:[], bloques:[], checklist:[], comentarios:[], notificaciones:[] };
+}
+function escribirSisLocal(d) { try { localStorage.setItem(SIS_LOCAL_KEY, JSON.stringify(d)); } catch (e) {} }
+function catalogoLocal() { const d = leerSisLocal(); return mapCatalogo(d.sistemas, d.modulos, d.cards); }
+/** Filas de Sistemas / Modulos (compartidas) → modelo del tablero */
+function mapCatalogo(sistemas = [], modulos = [], cards = {}) {
+  const color = (c, i) => /^#[0-9a-f]{6}$/i.test(c || '') ? c : PALETA[i % PALETA.length];
+  const num = v => (v === '' || v == null || isNaN(+v)) ? null : +v;
+  const porSub = Array.isArray(cards) ? cards.reduce((o, c) => (o[c.id_modulo] = (o[c.id_modulo] || 0) + 1, o), {}) : (cards || {});
+  return {
+    modulos: sistemas.filter(x => String(x.estatus ?? 1) !== '0').map((x, i) => ({ id:num(x.id), nombre:String(x.nombre || ''), folder:String(x.folder || ''),
+      orden:num(x.orden), spd:String(x.spd || ''), color:color(x.color, i) })),
+    subs: modulos.filter(x => String(x.estatus ?? 1) !== '0').map(x => ({ id:num(x.id), idSistema:num(x.id_sistema), nombre:String(x.nombre || ''),
+      archivo:String(x.archivo_subsistema || ''), orden:num(x.orden) })),
+    cardsPorSub: porSub
+  };
+}
+
+/* ---------- Guardar módulos (sistemas) y subsistemas en las hojas compartidas ---------- */
+const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+const Compartido = {
+  /** entidad: 'sistemas' | 'modulos'. Sin id = nuevo. Con id = actualiza solo los campos enviados. */
+  async guardar(entidad, fila) {
+    if (MODO === 'drive') return llamarApi('save', { entity:entidad, data:fila });
+    const d = leerSisLocal(), col = d[entidad];
+    if (!fila.id) fila = { ...fila, id:Math.max(0, ...col.map(x => +x.id || 0)) + 1 };
+    const i = col.findIndex(x => +x.id === +fila.id);
+    if (i < 0) col.push(fila); else col[i] = { ...col[i], ...fila };
+    escribirSisLocal(d);
+    return i < 0 ? fila : col[i];
+  },
+  async eliminar(entidad, id) {
+    if (MODO === 'drive') return llamarApi('remove', { entity:entidad, data:{ ids:[id] } });
+    const d = leerSisLocal(); d[entidad] = d[entidad].filter(x => +x.id !== +id); escribirSisLocal(d);
+  },
+  /** Vuelve a leer módulos y subsistemas (por si otra página o persona los cambió) */
+  async refrescar() {
+    if (MODO === 'drive') return cargarDrive({ silencioso:true });
+    Object.assign(db, catalogoLocal()); ordenar(); render();
+  }
+};
+/** Ejecuta un guardado compartido; si falla, avisa y recarga lo que hay en la hoja */
+async function compartir(fn, ok) {
+  try { await fn(); if (ok) toast(ok); }
+  catch (e) { toast('No se pudo guardar: ' + e.message); }
+  await Compartido.refrescar();
+}
+
 function leerPref(k, def) { try { return localStorage.getItem('tablero-accesos:' + k) ?? def; } catch (e) { return def; } }
 function guardarPref(k, v) { try { localStorage.setItem('tablero-accesos:' + k, v); } catch (e) {} }
 
 /* ---------------- Orden de visualización (no toca ids) ---------------- */
 function ordenar() {
-  ['areas', 'roles', 'modulos'].forEach(k =>
-    db[k].sort((a, b) => (a.orden ?? 1e9) - (b.orden ?? 1e9) || a.id - b.id));
+  ['areas', 'roles', 'modulos', 'subs'].forEach(k =>
+    (db[k] || []).sort((a, b) => (a.orden ?? 1e9) - (b.orden ?? 1e9) || a.id - b.id));
 }
 const renumerar = col => col.forEach((x, i) => x.orden = i + 1);
 const siguienteOrden = col => Math.max(0, ...col.map(x => x.orden || 0)) + 1;
@@ -306,6 +441,7 @@ const empDe   = id => db.empleados.find(p => p.id === id);
 const modDe   = id => db.modulos.find(m => m.id === id);
 const nombreCompleto = p => [p.nombre, p.paterno, p.materno].filter(Boolean).join(' ').trim();
 const permiso = (u, m) => db.permisos.find(x => x.u === u && x.m === m);
+const subsDe = m => db.subs.filter(s => s.idSistema === m);
 const modulosDe = u => db.permisos.filter(x => x.u === u).map(x => modDe(x.m)).filter(Boolean);
 const empleadosDeModulo = m => db.permisos.filter(x => x.m === m).map(x => empDe(x.u)).filter(Boolean);
 const coincide = p => {
@@ -320,18 +456,19 @@ const VISTAS = {
   areas:   { key:'area',   coleccion:()=>db.areas,   campo:'areaId', nuevo:'Área',
              hint:'Arrastra filas entre columnas para cambiar de área · ⋮⋮ reordena columnas · clic en una fila para editar.' },
   modulos: { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Ícono de persona en el encabezado = agregar o quitar personas · ✕ en una fila = quitar acceso · arrastra a otro módulo para dar acceso · ⋮⋮ reordena · ícono de base de datos = SPD.' },
+             hint:'Los módulos son los sistemas de Sistemas y Módulos (se editan en ambos lados) · ícono de persona = agregar o quitar personas · ✕ = quitar acceso · arrastra a otro módulo para dar acceso · ⋮⋮ reordena · ▸ subsistemas.' },
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
-             hint:'Arrastra filas para cambiar el rol de una persona · "Módulos" da o quita módulos a todas las personas del rol.' },
+             hint:'Arrastra filas para cambiar el rol de una persona · "▸ módulos" despliega los módulos del rol; "Asignar" los da o quita a todo el rol.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
-const HINT_LECTURA = 'Modo solo lectura. Inicia sesión en el sistema de tickets para editar.';
+const HINT_LECTURA = 'Modo solo lectura. Inicia sesión (botón Login) para editar.';
+const subsAbiertos = new Set();   // módulos con sus subsistemas desplegados (vista Módulos)
 
 /* ---------------- Render: piezas ---------------- */
 const encabezado = `<div class="prow phead">
   <div>ID</div><div class="c-usuario">USUARIO</div><div class="c-idrol">ID_ROL</div><div class="c-rol">ROL</div>
-  <div class="c-nombre">NOMBRE COMPLETO</div><div class="c-perm">PERMISOS</div>
+  <div class="c-nombre">NOMBRE COMPLETO</div><div class="c-perm"></div>
 </div>`;
 
 function badgesPermiso(p) {
@@ -348,8 +485,8 @@ function fila(p, { drag = false, modulo = null } = {}) {
     <div class="c-idrol text-end">${p.rolId ?? '—'}</div>
     <div class="c-rol" title="${esc(rol?.nombre)}">${esc(rol?.nombre || 'SIN ROL')}</div>
     <div class="c-nombre" title="${esc(nc)} · ${esc(area?.nombre || 'Sin área')}"><span class="dot" style="background:${area?.color || '#b0bec5'}"></span>${esc(nc || '(SIN DATOS DE EMPLEADO)')}</div>
-    <div class="c-perm">${modulo ? badgesPermiso(permiso(p.id, modulo)) +
-      (PUEDE_EDITAR ? `<button class="btn-quitar" data-act="quitar" data-m="${modulo}" title="Quitar de este módulo"><i class="bi bi-x-lg"></i></button>` : '') : ''}</div>
+    <div class="c-perm">${modulo && PUEDE_EDITAR
+      ? `<button class="btn-quitar m-0" data-act="quitar" data-m="${modulo}" title="Quitar de este módulo"><i class="bi bi-x-lg"></i></button>` : ''}</div>
   </div>`;
 }
 
@@ -412,16 +549,33 @@ function htmlModulos(lista) {
         ${handle('Arrastrar módulo')}
         <span class="orden" title="Orden de visualización">#${m.orden ?? '–'}</span>
         <span class="flex-grow-1 text-truncate" title="${esc(m.nombre)}">${m.id} · ${esc(m.nombre)}</span>
+        ${m.folder ? `<span class="folder-tag" title="Folder">${esc(m.folder)}</span>` : ''}
         <button class="btn btn-sm btn-link btn-spd ${m.spd ? 'tiene' : ''}" data-act="spd" title="${m.spd ? 'SPD: ' + esc(m.spd) : 'SPD (opcional)'}">
           <i class="bi ${m.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
         <span class="badge bg-light text-dark">${gente.length}</span>
         ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
       </header>
+      ${barraSubs(m)}
       <div class="mod-cols">${cols}</div>
     </section>`);
   }
   return grupos.join(divisor()) + btnAgregar('módulo');
+}
+
+/* Subsistemas del módulo (hoja Modulos, compartida con Sistemas y Módulos) */
+function barraSubs(m) {
+  const subs = subsDe(m.id), abierto = subsAbiertos.has(m.id);
+  return `<div class="subs-bar">
+      <button class="btn btn-sm btn-link btn-mods p-0 ${abierto ? 'abierto' : ''}" data-act="toggle-subs" aria-expanded="${abierto}">
+        <i class="bi bi-chevron-right"></i> ${subs.length} subsistema${subs.length === 1 ? '' : 's'}</button>
+      <a class="ms-auto small" href="areas.html#sistema-${m.id}" title="Abrir en Sistemas y Módulos"><i class="bi bi-box-arrow-up-right"></i> Sistemas</a>
+    </div>
+    ${abierto ? `<div class="subs-list">
+      ${subs.map(s => `<button type="button" class="chip chip-sub" style="--c:${m.color}" data-act="edit-sub" data-sub="${s.id}" ${PUEDE_EDITAR ? '' : 'disabled'}
+          title="${esc(s.archivo || 'Sin archivo')}${db.cardsPorSub[s.id] ? ` · ${db.cardsPorSub[s.id]} card(s)` : ''}">${s.id} · ${esc(s.nombre)}</button>`).join('') || '<span class="small text-muted">Sin subsistemas</span>'}
+      ${PUEDE_EDITAR ? `<button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-act="add-sub"><i class="bi bi-plus-circle"></i> Subsistema</button>` : ''}
+    </div>` : ''}`;
 }
 
 function htmlMatriz() {
@@ -492,12 +646,20 @@ function render() {
         const todos = n === miembros.length;
         return `<span class="chip ${todos ? '' : 'parcial'}" style="--c:${m.color}" title="${n} de ${miembros.length} personas del rol">${esc(m.nombre)}${todos ? '' : ` ${n}/${miembros.length}`}</span>`;
       }).join('');
-      const extra = `<div class="px-2 py-1 border-bottom small text-muted">Área del rol:
-        ${a ? `<span class="chip" style="--c:${a.color}">${esc(a.nombre)}</span>` : 'sin área'}</div>
-        <div class="px-2 py-2 border-bottom d-flex flex-wrap gap-1 align-items-center">
+      const nMods = (chips.match(/class="chip/g) || []).length;
+      const abierto = rolesAbiertos.has(r.id);
+      // Por defecto solo se ve el área del rol; los módulos se despliegan con el botón
+      const extra = `<div class="px-2 py-1 border-bottom small text-muted d-flex align-items-center gap-1 flex-wrap">
+          <span>Área del rol:</span>
+          ${a ? `<span class="chip" style="--c:${a.color}">${esc(a.nombre)}</span>` : '<span>sin área</span>'}
+          <button class="btn btn-sm btn-link btn-mods ms-auto ${abierto ? 'abierto' : ''}" data-act="toggle-mods"
+                  aria-expanded="${abierto}" title="${abierto ? 'Ocultar' : 'Ver'} módulos del rol">
+            <i class="bi bi-chevron-right"></i> ${nMods} módulo${nMods === 1 ? '' : 's'}</button>
+        </div>
+        ${abierto ? `<div class="px-2 py-2 border-bottom d-flex flex-wrap gap-1 align-items-center">
           ${chips || '<span class="small text-muted">Sin módulos</span>'}
-          ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link p-0 ms-auto" data-act="modulos-rol" title="Dar o quitar módulos a todo el rol"><i class="bi bi-sliders"></i> Módulos</button>` : ''}
-        </div>`;
+          ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link p-0 ms-auto" data-act="modulos-rol" title="Dar o quitar módulos a todo el rol"><i class="bi bi-sliders"></i> Asignar</button>` : ''}
+        </div>` : ''}`;
       return columna({ key:'rol', id:r.id, titulo:`${r.id} · ${r.nombre}`, color:r.color, orden:r.orden,
         lista: lista.filter(p => p.rolId === r.id), drag:true, extra });
     });
@@ -521,9 +683,15 @@ function initSortable() {
     onEnd() {
       const ids = [...board.querySelectorAll(selector)].map(el => +el.dataset.id);
       const col = VISTAS[vista].coleccion();
+      const antes = new Map(col.map(x => [x.id, x.orden]));
       col.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
       renumerar(col);
-      cambio(); render();
+      render();
+      if (VISTAS[vista].key === 'modulo') {
+        // El orden de los módulos es el orden de los sistemas: se ve igual en Sistemas y Módulos
+        const cambiados = col.filter(x => antes.get(x.id) !== x.orden);
+        compartir(async () => { for (const x of cambiados) await Compartido.guardar('sistemas', { id:x.id, orden:x.orden }); }, 'Orden de módulos guardado');
+      } else cambio();
     }
   });
 
@@ -612,7 +780,7 @@ function abrirModal(titulo, cuerpo, acc, { grande = false } = {}) {
 }
 const error = msg => { $('#mError').textContent = msg; return false; };
 $('#mGuardar').onclick = async () => { if (await acciones.guardar?.() !== false) modal.hide(); };
-$('#mEliminar').onclick = () => { if (acciones.eliminar?.() !== false) modal.hide(); };
+$('#mEliminar').onclick = async () => { if (await acciones.eliminar?.() !== false) modal.hide(); };
 modalEl.addEventListener('submit', e => { e.preventDefault(); $('#mGuardar').click(); });
 modalEl.addEventListener('shown.bs.modal', () => modalEl.querySelector('.modal-body input, .modal-body select')?.focus());
 
@@ -669,8 +837,8 @@ function editarEmpleado(p) {
       if (nuevo) db.empleados.push(datos); else Object.assign(p, datos);
       cambio(); render(); toast(nuevo ? 'Empleado agregado' : 'Cambios guardados');
     },
-    eliminar: nuevo ? null : () => {
-      if (!confirm(`¿Eliminar a ${nombreCompleto(p) || 'usuario ' + p.id} y sus permisos?`)) return false;
+    eliminar: nuevo ? null : async () => {
+      if (!await confirmar(`¿Eliminar a ${nombreCompleto(p) || 'usuario ' + p.id} y sus permisos?`)) return false;
       db.empleados = db.empleados.filter(x => x !== p);
       db.permisos = db.permisos.filter(x => x.u !== p.id);
       cambio(); render(); toast('Empleado eliminado');
@@ -813,56 +981,123 @@ function editarColumna(key, id) {
   const it = nuevo
     ? { id:nextId(col), nombre:'', orden:siguienteOrden(col), color:PALETA[col.length % PALETA.length], areaId:null, folder:'', spd:'' }
     : col.find(x => x.id === id);
+  const esModulo = key === 'modulo';
+  const subs = esModulo && !nuevo ? subsDe(it.id) : [];
   abrirModal(`${nuevo ? 'Nuevo' : 'Editar'} ${etiqueta}`, `
     <form id="f" class="row g-2">
-      <div class="col-3"><label class="form-label small">ID</label><input name="id" type="number" min="1" class="form-control" value="${it.id}"></div>
+      <div class="col-3"><label class="form-label small">ID</label><input name="id" type="number" min="1" class="form-control" value="${it.id}" ${esModulo && !nuevo ? 'readonly title="El ID del módulo se comparte con Sistemas y Módulos y no se cambia"' : ''}></div>
       <div class="col-7"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(it.nombre)}"></div>
       <div class="col-2"><label class="form-label small">Color</label><input name="color" type="color" class="form-control form-control-color w-100" value="${it.color}"></div>
       <div class="col-4"><label class="form-label small">Orden (solo vista)</label><input name="orden" type="number" min="1" class="form-control" value="${it.orden ?? ''}"></div>
-      ${key === 'modulo' ? `
+      ${esModulo ? `
         <div class="col-8"><label class="form-label small">Folder</label><input name="folder" class="form-control text-uppercase" value="${esc(it.folder || '')}"></div>
-        <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control" value="${esc(it.spd || '')}"></div>` : ''}
+        <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control" value="${esc(it.spd || '')}"></div>
+        ${nuevo ? '' : `<div class="col-12 mt-2"><div class="fw-semibold small mb-1">Subsistemas (${subs.length})</div>
+          <div class="d-flex flex-wrap gap-1">${subs.map(s => `<span class="chip" style="--c:${it.color}" title="${esc(s.archivo)}">${s.id} · ${esc(s.nombre)}</span>`).join('') || '<span class="small text-muted">Sin subsistemas</span>'}</div>
+          <div class="small text-muted mt-1">Se editan desde la vista Módulos (▸ subsistemas) o en <a href="areas.html#sistema-${it.id}">Sistemas y Módulos</a>.</div></div>`}
+        <div class="col-12 small text-muted">Este módulo es un <b>sistema</b>: los cambios se ven también en Sistemas y Módulos.</div>` : ''}
       ${key === 'rol' ? `<div class="col-8"><label class="form-label small">Área del rol</label><select name="areaId" class="form-select">${opciones(db.areas, it.areaId, 'Sin área')}</select></div>` : ''}
-      <div class="col-12 small text-muted">Cambiar el orden no modifica ningún id ni relación.</div>
+      ${esModulo ? '' : '<div class="col-12 small text-muted">Cambiar el orden no modifica ningún id ni relación.</div>'}
       <button hidden></button>
     </form>`, {
-    guardar() {
+    async guardar() {
       const f = new FormData($('#f'));
       const nombre = f.get('nombre').trim().toUpperCase();
-      const nuevoId = +f.get('id');
+      const nuevoId = esModulo && !nuevo ? it.id : +f.get('id');
       if (!nuevoId) return error('El ID es obligatorio.');
       if (!nombre) return error('El nombre es obligatorio.');
       if (col.some(x => x.id === nuevoId && x !== it)) return error('Ese ID ya existe.');
       if (!nuevo && nuevoId !== it.id) {
-        if (!confirm(`Cambiar el id ${it.id} → ${nuevoId} actualizará todas sus referencias. ¿Continuar?`)) return false;
+        if (!await confirmar(`Cambiar el id ${it.id} → ${nuevoId} actualizará todas sus referencias. ¿Continuar?`)) return false;
         if (key === 'area')   { db.empleados.forEach(p => { if (p.areaId === it.id) p.areaId = nuevoId; });
                                 db.roles.forEach(r => { if (r.areaId === it.id) r.areaId = nuevoId; }); }
         if (key === 'rol')      db.empleados.forEach(p => { if (p.rolId === it.id) p.rolId = nuevoId; });
-        if (key === 'modulo')   db.permisos.forEach(x => { if (x.m === it.id) x.m = nuevoId; });
       }
       Object.assign(it, { id:nuevoId, nombre, color:f.get('color'), orden:num(f.get('orden')) ?? siguienteOrden(col) });
       if (key === 'rol') it.areaId = num(f.get('areaId')); else delete it.areaId;
-      if (key === 'modulo') { it.folder = (f.get('folder') || '').trim().toUpperCase(); it.spd = (f.get('spd') || '').trim(); }
+      if (esModulo) { it.folder = (f.get('folder') || '').trim().toUpperCase(); it.spd = (f.get('spd') || '').trim(); }
       else { delete it.folder; delete it.spd; }
       if (nuevo) col.push(it);
-      ordenar(); cambio(); render(); toast(nuevo ? `${etiqueta} agregado` : 'Cambios guardados');
+      ordenar(); render();
+      if (esModulo) {
+        const fila = { id:it.id, nombre:it.nombre, folder:it.folder, orden:it.orden, spd:it.spd, color:it.color };
+        if (nuevo) Object.assign(fila, { estatus:1, fecha_alta:stamp(), descripcion:'' });
+        compartir(() => Compartido.guardar('sistemas', fila), nuevo ? 'Módulo agregado (también en Sistemas)' : 'Cambios guardados (también en Sistemas)');
+      } else { cambio(); toast(nuevo ? `${etiqueta} agregado` : 'Cambios guardados'); }
     },
-    eliminar: nuevo ? null : () => {
-      if (!confirm(`¿Eliminar ${etiqueta} "${it.nombre}"? Los empleados no se borran.`)) return false;
+    eliminar: nuevo ? null : async () => {
+      if (esModulo && subsDe(it.id).length)
+        return error(`Tiene ${subsDe(it.id).length} subsistema(s). Muévelos o elimínalos antes de borrar el módulo.`);
+      if (!await confirmar(`¿Eliminar ${etiqueta} "${it.nombre}"? Los empleados no se borran.${esModulo ? ' También se quitan sus permisos y desaparece de Sistemas y Módulos.' : ''}`)) return false;
       col.splice(col.indexOf(it), 1);
       if (key === 'area')   { db.empleados.forEach(p => { if (p.areaId === it.id) p.areaId = null; });
                               db.roles.forEach(r => { if (r.areaId === it.id) r.areaId = null; }); }
       if (key === 'rol')      db.empleados.forEach(p => { if (p.rolId === it.id) p.rolId = null; });
       if (key === 'modulo')   db.permisos = db.permisos.filter(x => x.m !== it.id);
-      cambio(); render(); toast(`${etiqueta} eliminado`);
+      cambio(); render();
+      if (esModulo) compartir(() => Compartido.eliminar('sistemas', it.id), 'Módulo eliminado');
+      else toast(`${etiqueta} eliminado`);
     }
   });
 }
 
+/* ---------------- Subsistemas (hoja Modulos compartida) ---------------- */
+function editarSub(subId, sistemaId) {
+  if (!PUEDE_EDITAR) return;
+  const nuevo = subId == null;
+  const s = nuevo ? { id:null, idSistema:sistemaId, nombre:'', archivo:'', orden:subsDe(sistemaId).length + 1 } : db.subs.find(x => x.id === subId);
+  const nCards = nuevo ? 0 : (db.cardsPorSub[s.id] || 0);
+  abrirModal(nuevo ? 'Nuevo subsistema' : `Editar subsistema ${s.id}`, `
+    <form id="f" class="row g-2">
+      <div class="col-12"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(s.nombre)}" placeholder="Ej. ALTA DE PROMOCIONES"></div>
+      <div class="col-8"><label class="form-label small">Archivo del subsistema</label><input name="archivo" class="form-control font-monospace" value="${esc(s.archivo)}" placeholder="Ej. alta_promociones.html"></div>
+      <div class="col-4"><label class="form-label small">Orden</label><input name="orden" type="number" min="1" class="form-control" value="${s.orden ?? ''}"></div>
+      <div class="col-12"><label class="form-label small">Módulo (sistema)</label><select name="sistema" class="form-select">${opciones(db.modulos, s.idSistema)}</select></div>
+      <div class="col-12 small text-muted">${nuevo ? 'El ID se asigna automáticamente.' : `Tiene ${nCards} card(s) en Sistemas y Módulos; si cambias el módulo, se mueven con él.`}
+        Los cambios se ven también en Sistemas y Módulos.</div>
+      <button hidden></button>
+    </form>`, {
+    async guardar() {
+      const f = new FormData($('#f'));
+      const nombre = (f.get('nombre') || '').trim().toUpperCase();
+      if (!nombre) return error('El nombre es obligatorio.');
+      const idSistema = num(f.get('sistema'));
+      if (!nuevo && idSistema !== s.idSistema &&
+          !await confirmar(`¿Mover "${nombre}" a ${modDe(idSistema)?.nombre}? Se lleva sus ${nCards} card(s).`)) return false;
+      const fila = { nombre, archivo_subsistema:(f.get('archivo') || '').trim(), orden:num(f.get('orden')) ?? subsDe(idSistema).length + 1, id_sistema:idSistema };
+      if (nuevo) Object.assign(fila, { estatus:1, fecha_alta:stamp() }); else fila.id = s.id;
+      compartir(() => Compartido.guardar('modulos', fila), nuevo ? 'Subsistema agregado (también en Sistemas)' : 'Subsistema guardado (también en Sistemas)');
+    },
+    eliminar: nuevo ? null : async () => {
+      if (nCards) return error(`Tiene ${nCards} card(s). Elimínalas primero en Sistemas y Módulos.`);
+      if (!await confirmar(`¿Eliminar el subsistema "${s.nombre}"? También desaparece de Sistemas y Módulos.`)) return false;
+      compartir(() => Compartido.eliminar('modulos', s.id), 'Subsistema eliminado');
+    }
+  });
+}
+
+/* ---------------- Confirmación dentro de la página ---------------- */
+function confirmar(msg, ok = 'Continuar') {
+  return new Promise(res => {
+    const prev = document.activeElement;
+    const ov = document.createElement('div');
+    ov.className = 'cfm';
+    ov.innerHTML = `<div class="cfm-box" role="dialog" aria-modal="true"><p class="mb-3">${esc(msg)}</p>
+      <div class="d-flex justify-content-end gap-2"><button class="btn btn-secondary" data-r="0">Cancelar</button><button class="btn btn-danger" data-r="1">${esc(ok)}</button></div></div>`;
+    const fin = v => { ov.remove(); document.removeEventListener('keydown', tecla, true); (prev && prev.isConnected ? prev : document.querySelector('.modal.show'))?.focus(); res(v); };
+    const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fin(false); } };
+    ov.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) fin(b.dataset.r === '1'); else if (e.target === ov) fin(false); });
+    document.addEventListener('keydown', tecla, true);
+    (document.querySelector('.modal.show') || document.body).appendChild(ov);
+    ov.querySelector('[data-r="1"]').focus();
+  });
+}
+
 /* =====================================================================
-   SINCRONIZACIÓN CON DRIVE (automática si ENV.API_URL es un /exec)
-   Backend propio del tablero (otra hoja de cálculo):
-     POST { action:'tableroLeer' | 'tableroGuardar', key, user, data }
+   SINCRONIZACIÓN CON DRIVE (automática si ENV.SISTEMAS_API_URL es un /exec)
+   Mismo Apps Script y misma hoja que Sistemas y Módulos:
+     POST { action:'tableroLeer' | 'tableroGuardar', key, user, data }   (áreas, roles, empleados, permisos)
+     POST { action:'save' | 'remove', entity:'sistemas' | 'modulos', ... } (módulos y subsistemas)
    ===================================================================== */
 let driveListo = false, pendiente = false, timerAuto = null, sincronizando = false, otraVez = false, ultimoSync = null;
 
@@ -877,7 +1112,7 @@ function cambio() {
 function estadoSync(estado) {
   const b = $('#sync');
   const set = (cls, html, title) => { b.className = 'badge ' + cls; b.innerHTML = html; b.title = title || ''; };
-  if (MODO === 'local')        return set('text-bg-secondary', '<i class="bi bi-laptop"></i> Local', 'Sin /exec en config.js: los datos se guardan en este navegador');
+  if (MODO === 'local')        return set('text-bg-secondary', '<i class="bi bi-laptop"></i> Local', 'Sin SISTEMAS_API_URL en config.js: los datos se guardan en este navegador');
   if (estado === 'trabajando') return set('text-bg-info', '<span class="spinner-border spinner-border-sm"></span> Drive…');
   if (estado === 'error')      return set('text-bg-danger', '<i class="bi bi-exclamation-triangle"></i> Error Drive', 'Clic para reintentar');
   if (pendiente)               return set('text-bg-warning', '<i class="bi bi-cloud-arrow-up"></i> Guardando…');
@@ -886,8 +1121,20 @@ function estadoSync(estado) {
 
 function estadoSesion() {
   const b = $('#sesion');
-  if (PUEDE_EDITAR) { b.className = 'badge text-bg-light border'; b.innerHTML = `<i class="bi bi-person-check"></i> ${esc(SESION.name || SESION.user)}`; }
-  else { b.className = 'badge text-bg-warning'; b.innerHTML = '<i class="bi bi-eye"></i> Solo lectura'; }
+  if (!SESION) {
+    b.innerHTML = `<span class="badge text-bg-warning me-1"><i class="bi bi-eye"></i> Solo lectura</span><button class="btn btn-sm btn-success" id="btnLogin"><i class="bi bi-box-arrow-in-right"></i> Login</button>`;
+    $('#btnLogin').onclick = () => abrirGate(true);
+    return;
+  }
+  b.innerHTML = `<div class="dropdown">
+    <button class="btn btn-sm ${PUEDE_EDITAR ? 'btn-light border' : 'btn-warning'} dropdown-toggle" data-bs-toggle="dropdown">
+      <i class="bi ${PUEDE_EDITAR ? 'bi-person-check' : 'bi-eye'}"></i> ${esc(SESION.name || SESION.user)}${PUEDE_EDITAR ? '' : ' · solo lectura'}</button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><span class="dropdown-item-text small text-muted">La sesión es la misma de Sistemas y Módulos</span></li>
+      <li><hr class="dropdown-divider"></li>
+      <li><button class="dropdown-item text-danger" id="btnSalir"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button></li>
+    </ul></div>`;
+  $('#btnSalir').onclick = () => { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} location.reload(); };
 }
 
 async function llamarApi(action, extra = {}) {
@@ -900,12 +1147,11 @@ async function llamarApi(action, extra = {}) {
   return j.data;
 }
 
-/* Modelo de la página → filas de la hoja (rol, área, módulo y nombre completo también como texto) */
+/* Modelo de la página → filas de las hojas propias (los módulos NO se reescriben: viven en Sistemas) */
 function aHojas() {
   return {
     AREAS:   db.areas.map(a => ({ id:a.id, nombre:a.nombre, orden:a.orden ?? '', color:a.color })),
     ROLES:   db.roles.map(r => ({ id:r.id, nombre:r.nombre, id_area:r.areaId ?? '', area:areaDe(r.areaId)?.nombre || '', orden:r.orden ?? '', color:r.color })),
-    MODULOS: db.modulos.map(m => ({ id:m.id, nombre:m.nombre, folder:m.folder || '', orden:m.orden ?? '', spd:m.spd || '', color:m.color })),
     EMPLEADOS: empleadosOrdenados().map(p => ({ id:p.id, usuario:p.usuario, nombre:p.nombre, paterno:p.paterno, materno:p.materno,
       nombre_completo:nombreCompleto(p), id_rol:p.rolId ?? '', rol:rolDe(p.rolId)?.nombre || '',
       id_area:p.areaId ?? '', area:areaDe(p.areaId)?.nombre || '' })),
@@ -923,7 +1169,8 @@ function deHojas(h) {
   return {
     areas:   (h.AREAS || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), orden:num(r.orden), color:color(r.color, i) })),
     roles:   (h.ROLES || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), areaId:num(r.id_area), orden:num(r.orden), color:color(r.color, i) })),
-    modulos: (h.MODULOS || []).map((r, i) => ({ id:num(r.id), nombre:s(r.nombre), folder:s(r.folder), orden:num(r.orden), spd:s(r.spd), color:color(r.color, i) })),
+    // Módulos = hoja Sistemas, subsistemas = hoja Modulos (compartidas)
+    ...mapCatalogo(h.MODULOS || [], h.SUBSISTEMAS || [], h.CARDS_POR_SUBSISTEMA || {}),
     empleados: (h.EMPLEADOS || []).map(r => emp(num(r.id), s(r.usuario).toUpperCase(), s(r.nombre).toUpperCase(), s(r.paterno).toUpperCase(),
                                                 s(r.materno).toUpperCase(), num(r.id_rol), num(r.id_area))),
     permisos: (h.PERMISOS || []).map(r => ({ u:num(r.id_usuario), m:num(r.id_modulo), c:flag(r.consultar), i:flag(r.insertar), a:flag(r.actualizar), e:flag(r.eliminar) }))
@@ -948,12 +1195,13 @@ async function cargarDrive({ silencioso = false } = {}) {
   if (!silencioso) estadoSync('trabajando');
   try {
     const data = await llamarApi('tableroLeer');
-    const vacia = !data || ['AREAS','ROLES','MODULOS','EMPLEADOS','PERMISOS'].every(k => !(data[k] || []).length);
-    db = vacia ? VACIO() : deHojas(data);
+    const vacia = !data || ['AREAS','ROLES','EMPLEADOS','PERMISOS'].every(k => !(data[k] || []).length);
+    db = deHojas(data || {});
     ordenar(); guardarLocal();
     driveListo = true; pendiente = false; ultimoSync = new Date();
     render(); estadoSync();
-    if (vacia && PUEDE_EDITAR && !silencioso) toast('La hoja está vacía. Usa Datos → Importar JSON para cargar tus datos.');
+    if (vacia && PUEDE_EDITAR && !silencioso) toast('Aún no hay áreas, roles ni empleados. Usa Datos → Importar JSON para cargar tus datos.');
+    if (!db.modulos.length && !silencioso) toast('No hay sistemas: impórtalos primero desde Sistemas y Módulos (Importar catálogo).');
   } catch (e) {
     estadoSync('error');
     if (!driveListo) {
@@ -986,6 +1234,14 @@ $('#board').addEventListener('click', e => {
     if (act.dataset.act === 'quitar')   return quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
     if (act.dataset.act === 'personas') return asignarPersonas(+sec.dataset.id);
     if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
+    if (act.dataset.act === 'toggle-subs') { const id = +sec.dataset.id; subsAbiertos.has(id) ? subsAbiertos.delete(id) : subsAbiertos.add(id); return render(); }
+    if (act.dataset.act === 'edit-sub') return editarSub(+act.dataset.sub, +sec.dataset.id);
+    if (act.dataset.act === 'add-sub') return editarSub(null, +sec.dataset.id);
+    if (act.dataset.act === 'toggle-mods') {
+      const id = +sec.dataset.id;
+      rolesAbiertos.has(id) ? rolesAbiertos.delete(id) : rolesAbiertos.add(id);
+      return render();
+    }
     if (act.dataset.act === 'add-col')  return editarColumna(VISTAS[vista].key, null);
     if (act.dataset.act === 'edit-col') return editarColumna(sec.dataset.key, +sec.dataset.id);
   }
@@ -1004,7 +1260,8 @@ $('#board').addEventListener('change', e => {
 
 /* ---------------- Importar / exportar / restaurar ---------------- */
 $('#btnExport').onclick = () => {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type:'application/json' }));
+  const { cardsPorSub, ...datos } = db;   // incluye módulos y subsistemas como referencia
+  const url = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type:'application/json' }));
   const a = Object.assign(document.createElement('a'), { href:url, download:'tablero-datos.json' });
   a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
@@ -1015,18 +1272,21 @@ $('#fileImport').onchange = e => {
   reader.onload = () => {
     try {
       const d = JSON.parse(reader.result);
-      if (!['areas','roles','modulos','empleados','permisos'].every(k => Array.isArray(d[k]))) throw new Error();
+      if (!['areas','roles','empleados','permisos'].every(k => Array.isArray(d[k]))) throw new Error();
       const destino = MODO === 'drive' ? 'la hoja de Drive' : 'este navegador';
-      if (!confirm(`Se reemplazarán todos los datos de ${destino} con "${file.name}". ¿Continuar?`)) return;
-      db = d; ordenar(); cambio(); render(); toast('Datos importados');
-    } catch { alert('El archivo no tiene el formato esperado.'); }
+      // Los módulos no se importan: son los sistemas compartidos con Sistemas y Módulos
+      const ids = new Set(db.modulos.map(m => m.id));
+      const fuera = d.permisos.filter(x => !ids.has(+x.m)).length;
+      confirmar(`Se reemplazarán áreas, roles, empleados y permisos de ${destino} con "${file.name}". Los módulos se toman de Sistemas.${fuera ? ` ${fuera} permiso(s) apuntan a módulos que no existen en Sistemas.` : ''} ¿Continuar?`, 'Importar')
+        .then(ok => { if (!ok) return; PROPIOS.forEach(k => { db[k] = d[k]; }); ordenar(); cambio(); render(); toast('Datos importados'); });
+    } catch { toast('El archivo no tiene el formato esperado (areas, roles, empleados, permisos).'); }
     finally { e.target.value = ''; }
   };
   reader.readAsText(file);
 };
-$('#btnReset').onclick = () => {
-  if (MODO !== 'local' || !confirm('¿Restaurar los datos de demostración? Se perderán tus cambios locales.')) return;
-  db = structuredClone(DEMO); ordenar(); cambio(); render(); toast('Demo restaurada');
+$('#btnReset').onclick = async () => {
+  if (MODO !== 'local' || !await confirmar('¿Restaurar áreas, roles, empleados y permisos de demostración? Se perderán tus cambios locales. Los módulos no cambian.', 'Restaurar')) return;
+  const demo = structuredClone(DEMO); PROPIOS.forEach(k => { db[k] = demo[k]; }); ordenar(); cambio(); render(); toast('Demo restaurada');
 };
 
 /* ---------------- Aviso breve ---------------- */
@@ -1041,14 +1301,35 @@ function toast(msg, { deshacer } = {}) {
 }
 
 /* ---------------- Inicio ---------------- */
+$('#hoy').textContent = new Date().toLocaleDateString('es-MX', { weekday:'short', day:'numeric', month:'short', year:'numeric' }).replace(/^./, c => c.toUpperCase());
+document.getElementById('gateForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if (iniciarSesion($('#gUser').value, $('#gPass').value)) location.reload();
+  else $('#gErr').hidden = false;
+});
+function abrirGate(abrir) {
+  document.body.classList.toggle('gate-abierto', abrir);
+  $('#gate').hidden = !abrir;
+  if (abrir) setTimeout(() => $('#gUser').focus(), 0);
+}
+$('#gateCancelar').onclick = () => abrirGate(false);
 estadoSesion();
-estadoSync();
-render();
-if (MODO === 'drive') {
-  cargarDrive();
-  // En solo lectura se refresca solo, para ver cambios de quien edita
+{
+  // Sin sesión se ve todo en solo lectura; con sesión se edita
+  db = cargarLocal(); ordenar();
+  estadoSync();
+  render();
   const seg = (ENV && +ENV.REFRESH_SECONDS) || 60;
-  if (!PUEDE_EDITAR) setInterval(() => { if (!document.hidden) cargarDrive({ silencioso:true }); }, seg * 1000);
+  const libre = () => !document.hidden && !pendiente && !sincronizando && !document.querySelector('.modal.show, .cfm, .popover');
+  if (MODO === 'drive') {
+    cargarDrive();
+    // Se refresca solo para ver lo que cambian otras personas o la página de Sistemas
+    setInterval(() => { if (libre()) cargarDrive({ silencioso:true }); }, seg * 1000);
+  } else {
+    // Modo demo: si Sistemas y Módulos cambia el catálogo en otra pestaña, se actualiza aquí
+    window.addEventListener('storage', e => { if (e.key === SIS_LOCAL_KEY && libre()) Compartido.refrescar(); });
+    window.addEventListener('focus', () => { if (libre()) Compartido.refrescar(); });
+  }
 }
 </script>
 </body>
