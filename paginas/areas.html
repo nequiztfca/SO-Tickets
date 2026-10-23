@@ -13,7 +13,7 @@
 /* Layout: barra superior fija + migas; cada nivel (Sistemas → Módulos → Cards) abre con métricas y luego su contenido.
    Las cards se leen como entradas de bitácora: título, autor, texto, código y adjuntos. */
 :root {
-  --bg: #f6f3f4;
+  --bg: #e3e3e3;
   --surface: #ffffff;
   --surface-2: #efe9eb;
   --line: #e3dadd;
@@ -85,6 +85,13 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
 .crumbs .cur { color: var(--fg); font-weight: 600; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .today { font-size: .82rem; color: var(--muted); white-space: nowrap; }
+.saving-ind { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.saving-ind[hidden] { display: none; }
+.spin { width: 12px; height: 12px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex: none; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.post.saving { opacity: .72; pointer-events: none; }
+.post.saving .pid::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .spin, .post.saving .pid::before { animation-duration: 2s; } }
 .pill-demo { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--st-seg); border: 1px solid color-mix(in srgb, var(--st-seg) 45%, transparent); border-radius: 20px; padding: 2px 8px; }
 .btn-ghost { --bs-btn-color: var(--fg); --bs-btn-border-color: var(--line); --bs-btn-hover-bg: var(--surface-2); --bs-btn-hover-border-color: var(--line); --bs-btn-hover-color: var(--fg); --bs-btn-active-bg: var(--surface-2); --bs-btn-active-color: var(--fg); --bs-btn-active-border-color: var(--line); display: inline-flex; align-items: center; gap: 6px; }
 .btn-accent { --bs-btn-color: var(--accent-fg); --bs-btn-bg: var(--accent); --bs-btn-border-color: var(--accent); --bs-btn-hover-color: var(--accent-fg); --bs-btn-hover-bg: color-mix(in srgb, var(--accent) 88%, black); --bs-btn-hover-border-color: transparent; --bs-btn-active-bg: var(--accent); --bs-btn-active-color: var(--accent-fg); --bs-btn-disabled-bg: var(--accent); --bs-btn-disabled-color: var(--accent-fg); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
@@ -183,6 +190,9 @@ code { color: var(--accent); }
 .post-path { display: flex; align-items: center; gap: 4px; font-size: .72rem; color: var(--muted); margin: 2px 0 4px; min-width: 0; }
 .post-path span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .post-path svg { width: 11px; height: 11px; flex: none; }
+.post-path .go-mod { margin-left: auto; flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 6px; width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; }
+.post-path .go-mod:hover, .post-path .go-mod:focus-visible { color: var(--accent); border-color: var(--accent); }
+.post-path .go-mod svg { width: 13px; height: 13px; }
 .btn-assign { border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 20px; padding: 1px 8px; font-size: .74rem; display: inline-flex; align-items: center; gap: 4px; }
 .btn-assign:hover { border-color: var(--accent); color: var(--accent); }
 .btn-assign svg { width: 12px; height: 12px; }
@@ -382,17 +392,6 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
 .notif-empty { padding: 18px 14px; color: var(--muted); font-size: .84rem; }
 
 /* ---------- Recientes (pantalla de Sistemas) ---------- */
-.recent-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; margin-bottom: 20px; }
-.recent-box > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-block: 2px; }
-.recent-box > summary::-webkit-details-marker { display: none; }
-.recent-box .chev { transition: transform .15s; transform: rotate(-90deg); }
-.recent-box[open] .chev { transform: none; }
-.rec-last { font-size: .8rem; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
-.rec-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.rec-list .hist-item + .hist-item { margin-top: 0; }
-.rec-more { margin-top: 12px; text-align: right; font-size: .86rem; font-weight: 600; }
-.rec-more a { color: var(--accent); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-.rec-more a:hover { text-decoration: underline; }
 
 
 /* ---------- Avisos, confirmación y visor ---------- */
@@ -434,6 +433,7 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
   <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-go" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
@@ -449,6 +449,7 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
     <nav class="crumbs" id="crumbs" aria-label="Ubicación"></nav>
     <div class="top-right">
       <span class="pill-demo" id="demoPill" title="Los datos se guardan solo en este navegador">Demo</span>
+      <span class="saving-ind" id="savingInd" role="status" hidden><span class="spin"></span>Guardando…</span>
       <span class="today d-none d-md-inline" id="today"></span>
       <button class="btn btn-sm btn-ghost" id="btnTheme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema"><svg class="ic"><use href="#i-moon"/></svg></button>
       <div id="bellBox"></div>
@@ -530,7 +531,6 @@ const CONFIG = {
   },
   HISTORIA_ULTIMAS: 30,                // cards recientes que muestra Histórico
   HISTORIA_MAX_RESULTADOS: 100,        // tope de resultados del buscador de Histórico
-  RECIENTES: 5,                        // cards en "Recientes" de la pantalla de Sistemas
   TABLERO_CERRADOS: 5,                 // Tablero: cards visibles en Finalizado y en Producción (las más recientes)
   NOTIF_MAX: 20,                       // notificaciones visibles en la campanita
   REFRESCO_SEG: 60,                    // con Google Sheets: cada cuánto se buscan cambios
@@ -619,6 +619,12 @@ const avatar = (u, lg) => { const x = userOf(u); return `<span class="av ${lg ? 
  *   save(coleccion, objeto)   crea si no trae id, actualiza si trae id
  *   remove(coleccion, ids)
  * --------------------------------------------------------------------- */
+/** Indicador "Guardando…" del encabezado y cards que se están guardando */
+const Saving = {
+  n: 0, cards: new Set(),
+  begin() { this.n++; this.show(); }, end() { this.n = Math.max(0, this.n - 1); this.show(); },
+  show() { const el = document.getElementById('savingInd'); if (el) el.hidden = !(this.n || this.cards.size); }
+};
 const LocalRepo = {
   data: null, warned: false,
   async load() {
@@ -670,10 +676,14 @@ const LocalRepo = {
 const RemoteRepo = {
   data: null,
   async call(action, payload = {}) {
-    const res = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action, key: CONFIG.API_KEY, user: Auth.me(), ...payload }) });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'Error del servidor');
-    return j.data;
+    const write = action !== 'all';
+    if (write) Saving.begin();
+    try {
+      const res = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action, key: CONFIG.API_KEY, user: Auth.me(), ...payload }) });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Error del servidor');
+      return j.data;
+    } finally { if (write) Saving.end(); }
   },
   async load() {
     this.data = await this.call('all');
@@ -921,7 +931,6 @@ const State = {
   filters: { q: '', tipo: '', tag: '', persona: '', rol: '', prio: '' },
   hq: '',                                   // buscador de Histórico
   tf: { q: '', sistema: '', modulo: '', persona: '', prio: '' },   // filtros del Tablero general
-  recOpen: false,                           // "Recientes" en Sistemas: oculto de forma predeterminada
   mOpen: { sistema: false, modulo: false }, // métricas desplegadas (fuera de Inicio empiezan plegadas)
   get mode() { return Prefs.get('vista', 'columnas'); }
 };
@@ -981,20 +990,9 @@ function viewAreas() {
   return `<div class="page-head"><div><div class="eyebrow">Inicio</div><h1>Sistemas</h1><p class="lede">Elige un sistema para ver sus módulos.${logged ? ' Arrastra los sistemas para cambiar su orden.' : ''}</p></div>
       ${logged ? `<div class="head-actions"><button class="btn btn-accent" data-act="area-new">${icon('plus')} Nuevo sistema</button></div>` : ''}</div>
     ${metricsHtml(Q.cards(), { extra: [[areas.length, 'Sistemas'], [Q.modulos().length, 'Módulos']] })}
-    ${recientesHtml()}
     ${areas.length ? `<div class="area-feed" data-sort-group="sistemas">${areas.map(row).join('')}</div>` : emptySistemas(logged)}`;
 }
 
-/** Recientes: las últimas cards de cualquier subsistema. Oculto de forma predeterminada. */
-function recientesHtml() {
-  const all = Q.cards().slice().sort(byNewest), N = CONFIG.RECIENTES, list = all.slice(0, N);
-  return `<details class="recent-box" data-rec ${State.recOpen ? 'open' : ''}>
-    <summary><span class="m-sum">${icon('down', 'chev')} Recientes <span class="m-hint">últimas ${N} cards de todos los subsistemas</span></span>
-      ${list[0] ? `<span class="rec-last">Última: ${esc(list[0].titulo)} · ${ago(list[0].fecha_alta)}</span>` : ''}</summary>
-    ${list.length ? `<div class="rec-list">${list.map(histItem).join('')}</div>` : '<div class="empty">Todavía no hay cards.</div>'}
-    <div class="rec-more"><a href="#historico" data-go="historico">${icon('history')} Ver más en Histórico${all.length > N ? ` (${all.length} cards)` : ''} ${icon('right')}</a></div>
-  </details>`;
-}
 
 function viewArea(id) {
   const a = Q.area(id);
@@ -1056,9 +1054,9 @@ function postHtml(c, { feed = false, path = false } = {}) {
   const textShort = textBody.slice(0, L.caracteres) + (textBody.length > L.caracteres ? '…' : '');
   const shown = tagsIn(textShort), rowTags = tags.filter(t => !shown.includes(t));
   const extraBlocks = bl.filter(b => b.tipo === 'texto').length - 1 + Math.max(0, bl.filter(b => b.tipo === 'codigo').length - 1);
-  return `<article class="post" data-card="${c.id}" ${logged ? 'draggable="true"' : ''} tabindex="0">
+  return `<article class="post ${Saving.cards.has(String(c.id)) ? 'saving' : ''}" data-card="${c.id}" ${logged ? 'draggable="true"' : ''} tabindex="0">
     <div class="post-top"><span class="d-flex gap-2 align-items-center">${prioPill(c.prioridad)}${feed ? stPill(c.estado) : ''}</span><span class="pid">#${esc(c.id)}</span></div>
-    ${path ? (() => { const m = Q.modulo(c.id_modulo), a = m && Q.area(m.id_sistema); return `<div class="post-path" title="${esc((a?.nombre || '—') + ' › ' + (m?.nombre || '—'))}"><span>${esc(a?.nombre || '—')}</span>${icon('right')}<span>${esc(m?.nombre || 'Sin módulo')}</span></div>`; })() : ''}
+    ${path ? (() => { const m = Q.modulo(c.id_modulo), a = m && Q.area(m.id_sistema); return `<div class="post-path" title="${esc((a?.nombre || '—') + ' › ' + (m?.nombre || '—'))}"><span>${esc(a?.nombre || '—')}</span>${icon('right')}<span>${esc(m?.nombre || 'Sin módulo')}</span>${m ? `<button type="button" class="go-mod" data-act="go-mod" data-id="${m.id}" title="Ir al módulo ${esc(m.nombre)}" aria-label="Ir al módulo ${esc(m.nombre)}">${icon('go')}</button>` : ''}</div>`; })() : ''}
     <h3>${esc(c.titulo)}</h3>
     <div class="byline">${avatar(c.autor)}<span><b>${esc(userOf(c.autor).name)}</b> · ${ago(c.actualizado || c.fecha_alta)}</span></div>
     <div class="post-body" style="--max:${L.altoMax}px">
@@ -1177,6 +1175,22 @@ function viewTablero() {
       ${logged ? `<div class="head-actions"><button class="btn btn-accent" data-act="card-new" data-estado="seguimiento">${icon('plus')} Nueva card</button></div>` : ''}</div>
     ${metricsHtml(list, { people: true, key: 'tablero' })}
     ${toolbar}${board}`;
+}
+
+/** Cambia el estado al instante en pantalla y guarda en segundo plano (se revierte si falla) */
+async function moveCard(c, estado, after) {
+  if (!c || c.estado === estado) return;
+  const prev = { estado: c.estado, actualizado: c.actualizado }, key = String(c.id);
+  c.estado = estado; c.actualizado = stamp();
+  Saving.cards.add(key); Saving.show(); render(); after?.();
+  try {
+    await Repo.save('cards', { id: c.id, estado, actualizado: c.actualizado });
+    toast(`#${c.id} → ${ST[estado].label}`);
+    Notif.send(Notif.watchers(c), 'estado', c, 'a ' + ST[estado].label).catch(() => {});
+  } catch (err) {
+    const cur = Q.card(c.id) || c; Object.assign(cur, prev);
+    toast('No se pudo mover la card: ' + err.message, true);
+  } finally { Saving.cards.delete(key); Saving.show(); render(); after?.(); }
 }
 
 /** Asignar personas a una card desde el Tablero (o cualquier vista) */
@@ -1520,9 +1534,7 @@ function openCard(id) {
   const refresh = () => { openCard(c.id); render(); };
   $$('[data-state]', el).forEach(b => b.onclick = async () => {
     if (b.dataset.state === c.estado) return;
-    await Repo.save('cards', { id: c.id, estado: b.dataset.state, actualizado: stamp() });
-    await Notif.send(Notif.watchers(c), 'estado', c, 'a ' + ST[b.dataset.state].label);
-    toast(`Movida a ${ST[b.dataset.state].label}`); refresh();
+    await moveCard(c, b.dataset.state, () => { if (Modal.current === c.id && Modal.el.classList.contains('show')) openCard(c.id); });
   });
   $$('[data-chk]', el).forEach(i => i.onchange = async () => { await Repo.save('checklist', { id: Number(i.dataset.chk), hecho: i.checked }); await touch(); refresh(); });
   $$('[data-chk-del]', el).forEach(b => b.onclick = async () => { await Repo.remove('checklist', b.dataset.chkDel); refresh(); });
@@ -1728,6 +1740,7 @@ document.addEventListener('click', async e => {
       case 'prefs-reset': Prefs.reset(); applyTheme(); toast('Preferencias restablecidas'); return render();
       case 'card-new': return editCard(null, { estado: a.dataset.estado, id_modulo: State.route.view === 'modulo' ? State.route.id : State.route.view === 'tablero' ? State.tf.modulo : '' });
       case 'card-assign': return assignCard(Q.card(id));
+      case 'go-mod': Object.keys(State.filters).forEach(k => { State.filters[k] = ''; }); return go('modulo-' + id);
       case 'tf-clear': Object.keys(State.tf).forEach(k => { State.tf[k] = ''; }); return render();
     }
     return;
@@ -1757,7 +1770,6 @@ document.addEventListener('keydown', e => {
 // Métricas y Recientes: recordar si se desplegaron mientras se navega
 document.addEventListener('toggle', e => {
   const k = e.target?.dataset?.metrics; if (k && k !== 'inicio') State.mOpen[k] = e.target.open;
-  if (e.target?.dataset && 'rec' in e.target.dataset) State.recOpen = e.target.open;
 }, true);
 // Filtros del módulo
 let qTimer;
@@ -1814,12 +1826,8 @@ document.addEventListener('drop', async e => {
   const col = e.target.closest?.('.col'); if (!col || !dragId) return;
   e.preventDefault();
   const c = Q.card(dragId), estado = col.dataset.col; dragId = null;
-  if (c && c.estado !== estado) {
-    await Repo.save('cards', { id: c.id, estado, actualizado: stamp() });
-    await Notif.send(Notif.watchers(c), 'estado', c, 'a ' + ST[estado].label);
-    toast(`#${c.id} → ${ST[estado].label}`);
-  }
-  render();
+  $$('.col.drop').forEach(x => x.classList.remove('drop'));
+  if (c && c.estado !== estado) await moveCard(c, estado);
 });
 
 // Catálogo desde archivo
