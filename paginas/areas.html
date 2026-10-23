@@ -25,6 +25,7 @@
   --st-seg: #a8701a;          /* en seguimiento */
   --st-pro: #2563a8;          /* en proceso */
   --st-fin: #2f7d4f;          /* finalizado */
+  --st-prd: #6b4fbf;          /* producción */
   --danger: #c0392b;
   --code-bg: #1d1a1f;
   --code-fg: #ebe5e8;
@@ -38,7 +39,7 @@
   :root:not([data-theme="light"]) {
     --bg: #141113; --surface: #1d191b; --surface-2: #272124; --line: #362e32; --fg: #efe8eb; --muted: #a69a9f;
     --accent: #e07795; --accent-fg: #1d0b11; --accent-soft: #3b1f29;
-    --st-seg: #e2ab52; --st-pro: #74aaea; --st-fin: #62c28b; --danger: #f07264;
+    --st-seg: #e2ab52; --st-pro: #74aaea; --st-fin: #62c28b; --st-prd: #a08cf0; --danger: #f07264;
     --code-bg: #0e0c0d; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
     color-scheme: dark;
   }
@@ -46,7 +47,7 @@
 :root[data-theme="dark"] {
   --bg: #141113; --surface: #1d191b; --surface-2: #272124; --line: #362e32; --fg: #efe8eb; --muted: #a69a9f;
   --accent: #e07795; --accent-fg: #1d0b11; --accent-soft: #3b1f29;
-  --st-seg: #e2ab52; --st-pro: #74aaea; --st-fin: #62c28b; --danger: #f07264;
+  --st-seg: #e2ab52; --st-pro: #74aaea; --st-fin: #62c28b; --st-prd: #a08cf0; --danger: #f07264;
   --code-bg: #0e0c0d; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
   color-scheme: dark;
 }
@@ -175,8 +176,19 @@ code { color: var(--accent); }
 .fchip { display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; background: var(--accent-soft); color: var(--accent); border: 0; border-radius: 20px; padding: 2px 6px 2px 10px; }
 
 /* ---------- Tablero de cards ---------- */
-.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
-@media (max-width: 980px) { .board { grid-template-columns: minmax(0, 1fr); } }
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 1180px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .board { grid-template-columns: minmax(0, 1fr); } }
+/* ---------- Tablero general (todas las cards) ---------- */
+.post-path { display: flex; align-items: center; gap: 4px; font-size: .72rem; color: var(--muted); margin: 2px 0 4px; min-width: 0; }
+.post-path span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post-path svg { width: 11px; height: 11px; flex: none; }
+.btn-assign { border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 20px; padding: 1px 8px; font-size: .74rem; display: inline-flex; align-items: center; gap: 4px; }
+.btn-assign:hover { border-color: var(--accent); color: var(--accent); }
+.btn-assign svg { width: 12px; height: 12px; }
+.col-more { display: block; text-align: center; font-size: .8rem; padding: 8px 4px 2px; color: var(--muted); }
+.col-more a { color: var(--accent); }
+.tb-hint { font-size: .78rem; color: var(--muted); padding: 0 4px 8px; }
 .col { background: color-mix(in srgb, var(--surface-2) 60%, var(--bg)); border-radius: 12px; padding: 10px; min-width: 0; }
 .col.drop { outline: 2px dashed var(--c); outline-offset: -3px; }
 .col-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 10px; }
@@ -218,7 +230,7 @@ code { color: var(--accent); }
 .prio { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-weight: 600; border-radius: 5px; padding: 1px 7px; color: var(--pc); background: color-mix(in srgb, var(--pc) 12%, transparent); }
 .prio-Baja { --pc: var(--muted); } .prio-Media { --pc: var(--st-pro); } .prio-Alta { --pc: var(--st-seg); } .prio-Crítica { --pc: var(--danger); }
 .st { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 600; color: var(--c); }
-.c-seguimiento { --c: var(--st-seg); } .c-proceso { --c: var(--st-pro); } .c-finalizado { --c: var(--st-fin); }
+.c-seguimiento { --c: var(--st-seg); } .c-proceso { --c: var(--st-pro); } .c-finalizado { --c: var(--st-fin); } .c-produccion { --c: var(--st-prd); }
 
 /* Vista blog */
 .feed { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
@@ -433,7 +445,7 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
 <header class="topbar">
   <div class="wrap topbar-in">
     <a class="brand" href="#" data-go=""><span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>Sistemas <b>TFCA</b></a>
-    <nav class="topnav" aria-label="Secciones"><a href="#" data-go="">Sistemas</a><a href="#historico" data-go="historico">Histórico</a><a href="tablero.html">Accesos</a></nav>
+    <nav class="topnav" aria-label="Secciones"><a href="#" data-go="">Sistemas</a><a href="#tablero" data-go="tablero">Tablero</a><a href="#historico" data-go="historico">Histórico</a><a href="tablero.html">Accesos</a></nav>
     <nav class="crumbs" id="crumbs" aria-label="Ubicación"></nav>
     <div class="top-right">
       <span class="pill-demo" id="demoPill" title="Los datos se guardan solo en este navegador">Demo</span>
@@ -519,14 +531,17 @@ const CONFIG = {
   HISTORIA_ULTIMAS: 30,                // cards recientes que muestra Histórico
   HISTORIA_MAX_RESULTADOS: 100,        // tope de resultados del buscador de Histórico
   RECIENTES: 5,                        // cards en "Recientes" de la pantalla de Sistemas
+  TABLERO_CERRADOS: 5,                 // Tablero: cards visibles en Finalizado y en Producción (las más recientes)
   NOTIF_MAX: 20,                       // notificaciones visibles en la campanita
   REFRESCO_SEG: 60,                    // con Google Sheets: cada cuánto se buscan cambios
   PRIORIDADES: ['Baja', 'Media', 'Alta', 'Crítica'],
   ESTADOS: [
-    { key: 'seguimiento', label: 'En seguimiento', short: 'Seguimiento' },
-    { key: 'proceso',     label: 'En proceso',     short: 'En proceso' },
-    { key: 'finalizado',  label: 'Finalizados',    short: 'Finalizado' }
+    { key: 'seguimiento', label: 'Por hacer',   short: 'Por hacer' },     // en la hoja se guarda 'seguimiento'
+    { key: 'proceso',     label: 'En proceso',  short: 'En proceso' },
+    { key: 'finalizado',  label: 'Finalizado',  short: 'Finalizado' },
+    { key: 'produccion',  label: 'Producción',  short: 'Producción' }
   ],
+  CERRADOS: ['finalizado', 'produccion'],   // estados que ya no cuentan como abiertos
   LANGS: ['plaintext', 'sql', 'javascript', 'json', 'html', 'css', 'php', 'python', 'java', 'csharp', 'bash', 'xml', 'vbnet'],
   // rol = "tipo de persona" para filtrar
   // Usuarios: los de js/config.js (los mismos del Tablero de accesos). Estos son de respaldo.
@@ -849,6 +864,9 @@ function viewFile(b) {
 
 /* ------------------------------ Piezas de vista ------------------------------ */
 const ST = Object.fromEntries(CONFIG.ESTADOS.map(e => [e.key, e]));
+const ST_VAR = { seguimiento: '--st-seg', proceso: '--st-pro', finalizado: '--st-fin', produccion: '--st-prd' };
+const stVar = k => `var(${ST_VAR[k] || '--muted'})`;
+const isClosed = c => CONFIG.CERRADOS.includes(c.estado);
 const prioPill = p => `<span class="prio prio-${esc(p)}">${icon('flag')}${esc(p)}</span>`;
 const stPill = e => `<span class="st c-${esc(e)}"><span class="dot"></span>${esc(ST[e]?.short || e)}</span>`;
 function highlight(root = document) {
@@ -860,9 +878,9 @@ const richText = s => esc(s).replace(TAG_RE, (m, t) => `<button type="button" cl
 const codeBox = b => `<div class="code-box"><div class="code-bar"><span>${esc(b.lenguaje || 'plaintext')}</span><button type="button" data-copy>${icon('copy')} Copiar</button></div><pre><code class="language-${esc(b.lenguaje || 'plaintext')}">${esc(b.contenido)}</code></pre></div>`;
 
 function stats(cards) {
-  const by = { seguimiento: 0, proceso: 0, finalizado: 0 };
+  const by = Object.fromEntries(CONFIG.ESTADOS.map(e => [e.key, 0]));
   cards.forEach(c => { by[c.estado] = (by[c.estado] || 0) + 1; });
-  const open = cards.filter(c => c.estado !== 'finalizado');
+  const open = cards.filter(c => !isClosed(c));
   const ch = cards.flatMap(c => Q.checks(c.id));
   return { total: cards.length, by, hi: open.filter(c => c.prioridad === 'Alta' || c.prioridad === 'Crítica').length, chTotal: ch.length, chDone: ch.filter(Q.done).length, open };
 }
@@ -870,15 +888,13 @@ function metricsHtml(cards, { extra = [], people = false, key = 'inicio' } = {})
   const open = key === 'inicio' ? true : !!State.mOpen[key];
   const s = stats(cards);
   const tile = (n, l, c) => `<div class="m-tile"><div class="m-num">${n}</div><div class="m-lbl">${c ? `<span class="dot" style="--c:var(${c})"></span>` : ''}${l}</div></div>`;
-  const bar = s.total ? CONFIG.ESTADOS.map(e => `<span style="width:${s.by[e.key] / s.total * 100}%;background:var(--st-${e.key.slice(0, 3)})" title="${e.label}: ${s.by[e.key]}"></span>`).join('') : '';
+  const bar = s.total ? CONFIG.ESTADOS.map(e => `<span style="width:${s.by[e.key] / s.total * 100}%;background:${stVar(e.key)}" title="${e.label}: ${s.by[e.key]}"></span>`).join('') : '';
   const ppl = people ? CONFIG.USERS.map(u => [u, s.open.filter(c => splitList(c.asignados).includes(u.user)).length]).filter(([, n]) => n) : [];
   return `<details class="metrics" data-metrics="${key}" ${open ? 'open' : ''}>
     <summary><span class="m-sum">${icon('down', 'chev')} Métricas <span class="m-hint">${s.total} card${s.total === 1 ? '' : 's'}</span></span><span class="m-bar" aria-label="Avance por estado">${bar}</span></summary>
     <div class="m-grid">
       ${extra.map(([n, l]) => tile(n, l)).join('')}
-      ${tile(s.by.seguimiento, 'En seguimiento', '--st-seg')}
-      ${tile(s.by.proceso, 'En proceso', '--st-pro')}
-      ${tile(s.by.finalizado, 'Finalizados', '--st-fin')}
+      ${CONFIG.ESTADOS.map(e => tile(s.by[e.key], e.label, ST_VAR[e.key])).join('')}
       ${tile(s.hi, 'Alta y crítica abiertas', '--danger')}
       ${tile(s.chTotal ? Math.round(s.chDone / s.chTotal * 100) + '%' : '—', `Checklist (${s.chDone}/${s.chTotal})`)}
     </div>
@@ -904,13 +920,15 @@ const State = {
   route: { view: 'areas', id: null },
   filters: { q: '', tipo: '', tag: '', persona: '', rol: '', prio: '' },
   hq: '',                                   // buscador de Histórico
+  tf: { q: '', sistema: '', modulo: '', persona: '', prio: '' },   // filtros del Tablero general
   recOpen: false,                           // "Recientes" en Sistemas: oculto de forma predeterminada
   mOpen: { sistema: false, modulo: false }, // métricas desplegadas (fuera de Inicio empiezan plegadas)
   get mode() { return Prefs.get('vista', 'columnas'); }
 };
 function parseRoute() {
   const h = decodeURIComponent(location.hash.replace(/^#/, ''));
-  if (h === 'historico' || h === 'historia') return { view: 'historia', id: null };   // 'historia' = enlace anterior
+  if (h === 'historico' || h === 'historia') return { view: 'historia', id: null };
+  if (h === 'tablero') return { view: 'tablero', id: null };   // 'historia' = enlace anterior
   const m = h.match(/^(sistema|modulo)-(\d+)$/);
   return m ? { view: m[1] === 'sistema' ? 'area' : 'modulo', id: m[2] } : { view: 'areas', id: null };
 }
@@ -919,7 +937,7 @@ const go = token => { if (('#' + token) === location.hash || (!token && !locatio
 /* ------------------------------ Vistas ------------------------------ */
 function crumbs() {
   const r = State.route;
-  $$('.topnav a').forEach(a => a.classList.toggle('on', a.dataset.go === (r.view === 'historia' ? 'historico' : '')));
+  $$('.topnav a').forEach(a => a.classList.toggle('on', a.dataset.go === (r.view === 'historia' ? 'historico' : r.view === 'tablero' ? 'tablero' : '')));
   const parts = [];
   if (r.view === 'area') { const a = Q.area(r.id); parts.push(`<span class="cur">${esc(a?.nombre || '—')}</span>`); }
   if (r.view === 'modulo') {
@@ -929,8 +947,8 @@ function crumbs() {
   }
   $('#crumbs').innerHTML = parts.length ? icon('right') + parts.join(icon('right')) : '';
 }
-const stateBar = s => s.total ? CONFIG.ESTADOS.map(e => `<span style="width:${s.by[e.key] / s.total * 100}%;background:var(--st-${e.key.slice(0, 3)})" title="${e.label}: ${s.by[e.key]}"></span>`).join('') : '';
-const stCounts = s => `<div class="st-counts">${CONFIG.ESTADOS.map(e => `<span title="${e.label}"><span class="dot" style="--c:var(--st-${e.key.slice(0, 3)})"></span>${s.by[e.key]}</span>`).join('')}</div>`;
+const stateBar = s => s.total ? CONFIG.ESTADOS.map(e => `<span style="width:${s.by[e.key] / s.total * 100}%;background:${stVar(e.key)}" title="${e.label}: ${s.by[e.key]}"></span>`).join('') : '';
+const stCounts = s => `<div class="st-counts">${CONFIG.ESTADOS.map(e => `<span title="${e.label}"><span class="dot" style="--c:${stVar(e.key)}"></span>${s.by[e.key]}</span>`).join('')}</div>`;
 
 /** Sistemas: siempre en forma de blog (una entrada por sistema). El orden se cambia arrastrando. */
 function viewAreas() {
@@ -1027,7 +1045,7 @@ const PRIO_ORDER = { 'Crítica': 0, 'Alta': 1, 'Media': 2, 'Baja': 3 };
 const sortCards = list => list.sort((a, b) => (PRIO_ORDER[a.prioridad] ?? 9) - (PRIO_ORDER[b.prioridad] ?? 9) || String(b.actualizado).localeCompare(String(a.actualizado)));
 
 /** Card resumida. El cuerpo tiene un alto máximo; el contenido completo se ve al hacer clic. */
-function postHtml(c, { feed = false } = {}) {
+function postHtml(c, { feed = false, path = false } = {}) {
   const bl = Q.bloques(c.id), logged = !!Auth.current();
   const text = bl.find(b => b.tipo === 'texto'), code = bl.find(b => b.tipo === 'codigo');
   const files = bl.filter(b => b.tipo === 'archivo'), imgs = files.filter(b => /^image\//.test(b.mime) && b.url), docs = files.filter(b => !imgs.includes(b));
@@ -1040,6 +1058,7 @@ function postHtml(c, { feed = false } = {}) {
   const extraBlocks = bl.filter(b => b.tipo === 'texto').length - 1 + Math.max(0, bl.filter(b => b.tipo === 'codigo').length - 1);
   return `<article class="post" data-card="${c.id}" ${logged ? 'draggable="true"' : ''} tabindex="0">
     <div class="post-top"><span class="d-flex gap-2 align-items-center">${prioPill(c.prioridad)}${feed ? stPill(c.estado) : ''}</span><span class="pid">#${esc(c.id)}</span></div>
+    ${path ? (() => { const m = Q.modulo(c.id_modulo), a = m && Q.area(m.id_sistema); return `<div class="post-path" title="${esc((a?.nombre || '—') + ' › ' + (m?.nombre || '—'))}"><span>${esc(a?.nombre || '—')}</span>${icon('right')}<span>${esc(m?.nombre || 'Sin módulo')}</span></div>`; })() : ''}
     <h3>${esc(c.titulo)}</h3>
     <div class="byline">${avatar(c.autor)}<span><b>${esc(userOf(c.autor).name)}</b> · ${ago(c.actualizado || c.fecha_alta)}</span></div>
     <div class="post-body" style="--max:${L.altoMax}px">
@@ -1051,7 +1070,7 @@ function postHtml(c, { feed = false } = {}) {
     </div>
     <div class="see-all" ${extraBlocks > 0 ? '' : 'hidden'}>${icon('right')} Clic para ver todo${extraBlocks > 0 ? ` (+${extraBlocks} bloque${extraBlocks === 1 ? '' : 's'})` : ''}</div>
     <div class="post-foot">
-      <span class="avs">${splitList(c.asignados).map(u => avatar(u)).join('') || '<span>Sin asignar</span>'}</span>
+      <span class="avs">${splitList(c.asignados).map(u => avatar(u)).join('') || (logged ? '' : '<span>Sin asignar</span>')}${logged ? `<button type="button" class="btn-assign" data-act="card-assign" data-id="${c.id}" title="Asignar personas">${icon('users')}${splitList(c.asignados).length ? '' : ' Asignar'}</button>` : ''}</span>
       <span class="meta">
         <span class="kinds" title="Contenido">${kinds.has('texto') ? icon('text') : ''}${kinds.has('codigo') ? icon('code') : ''}${kinds.has('archivo') ? icon('clip') : ''}</span>
         ${ch.length ? `<span title="Checklist">${icon('check')} ${done}/${ch.length} <span class="prog"><i style="width:${done / ch.length * 100}%"></i></span></span>` : ''}
@@ -1097,7 +1116,7 @@ function viewModulo(id) {
   } else {
     content = `<div class="board">${CONFIG.ESTADOS.map(e => {
       const items = list.filter(c => c.estado === e.key);
-      return `<section class="col c-${e.key}" data-col="${e.key}" style="--c:var(--st-${e.key.slice(0, 3)})">
+      return `<section class="col c-${e.key}" data-col="${e.key}" style="--c:${stVar(e.key)}">
         <div class="col-head"><h2><span class="dot"></span>${e.label} <span class="count">${items.length}</span></h2>
           ${logged ? `<button class="btn-icon" data-act="card-new" data-estado="${e.key}" title="Agregar card en ${e.label}">${icon('plus')}</button>` : ''}</div>
         <div class="col-body">${items.map(c => postHtml(c)).join('') || `<div class="empty">${all.some(c => c.estado === e.key) ? 'Sin coincidencias' : 'Nada aquí todavía'}</div>`}</div>
@@ -1108,6 +1127,77 @@ function viewModulo(id) {
       ${logged ? `<div class="head-actions"><button class="btn btn-ghost" data-act="mod-edit" data-id="${m.id}">${icon('edit')} Editar módulo</button><button class="btn btn-accent" data-act="card-new" data-estado="seguimiento">${icon('plus')} Nueva card</button></div>` : ''}</div>
     ${metricsHtml(all, { people: true, key: 'modulo' })}
     ${toolbar}${chips}${content}`;
+}
+
+/** Tablero: todas las cards de todos los sistemas y módulos en 4 columnas (estilo Trello).
+ *  Finalizado y Producción solo muestran las más recientes (CONFIG.TABLERO_CERRADOS); el resto está en Histórico. */
+function tableroCards() {
+  const f = State.tf, q = f.q.trim().toLowerCase();
+  return Q.cards().filter(c => {
+    const m = Q.modulo(c.id_modulo), asg = splitList(c.asignados);
+    if (f.sistema && String(m?.id_sistema) !== String(f.sistema)) return false;
+    if (f.modulo && String(c.id_modulo) !== String(f.modulo)) return false;
+    if (f.persona === '__none' ? asg.length : f.persona && !asg.includes(f.persona)) return false;
+    if (f.prio && c.prioridad !== f.prio) return false;
+    if (q && !cardHaystack(c).includes(q)) return false;
+    return true;
+  });
+}
+function viewTablero() {
+  const f = State.tf, logged = !!Auth.current(), N = CONFIG.TABLERO_CERRADOS;
+  if (f.modulo && f.sistema && String(Q.modulo(f.modulo)?.id_sistema) !== String(f.sistema)) f.modulo = '';
+  const all = Q.cards(), list = tableroCards();
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+  const areas = Q.areas(), mods = f.sistema ? Q.modulos(f.sistema) : [];
+  const modOpts = f.sistema ? mods.map(m => opt(m.id, m.nombre, f.modulo)).join('')
+    : areas.map(a => `<optgroup label="${esc(a.nombre)}">${Q.modulos(a.id).map(m => opt(m.id, m.nombre, f.modulo)).join('')}</optgroup>`).join('');
+  const toolbar = `<div class="toolbar">
+    <div class="search">${icon('search')}<input class="form-control form-control-sm" id="tQ" placeholder="Buscar en todas las cards: título, texto, código, #hashtag, persona o #ID" value="${esc(f.q)}" aria-label="Buscar en el tablero"></div>
+    <select class="form-select form-select-sm" id="tSistema" aria-label="Sistema">${opt('', 'Todos los sistemas', f.sistema)}${areas.map(a => opt(a.id, a.nombre, f.sistema)).join('')}</select>
+    <select class="form-select form-select-sm" id="tModulo" aria-label="Módulo">${opt('', f.sistema ? 'Todos sus módulos' : 'Todos los módulos', f.modulo)}${modOpts}</select>
+    <select class="form-select form-select-sm" id="tPersona" aria-label="Persona asignada">${opt('', 'Todas las personas', f.persona)}${CONFIG.USERS.map(u => opt(u.user, u.name, f.persona)).join('')}${opt('__none', 'Sin asignar', f.persona)}</select>
+    <select class="form-select form-select-sm" id="tPrio" aria-label="Prioridad">${opt('', 'Toda prioridad', f.prio)}${CONFIG.PRIORIDADES.map(p => opt(p, p, f.prio)).join('')}</select>
+    ${Object.values(f).some(Boolean) ? `<button class="btn btn-sm btn-ghost" data-act="tf-clear">${icon('x')} Quitar filtros</button>` : ''}
+  </div>`;
+  const byUpd = (a, b) => String(b.actualizado || b.fecha_alta).localeCompare(String(a.actualizado || a.fecha_alta)) || b.id - a.id;
+  const board = `<div class="board">${CONFIG.ESTADOS.map(e => {
+    const items = list.filter(c => c.estado === e.key), closed = CONFIG.CERRADOS.includes(e.key);
+    const shown = closed ? items.slice().sort(byUpd).slice(0, N) : sortCards(items.slice());
+    const hidden = items.length - shown.length;
+    return `<section class="col c-${e.key}" data-col="${e.key}" style="--c:${stVar(e.key)}">
+      <div class="col-head"><h2><span class="dot"></span>${e.label} <span class="count">${items.length}</span></h2>
+        ${logged ? `<button class="btn-icon" data-act="card-new" data-estado="${e.key}" title="Agregar card en ${e.label}">${icon('plus')}</button>` : ''}</div>
+      ${hidden > 0 ? `<div class="tb-hint">Las ${N} más recientes</div>` : ''}
+      <div class="col-body">${shown.map(c => postHtml(c, { path: true })).join('') || `<div class="empty">${all.some(c => c.estado === e.key) ? 'Sin coincidencias' : 'Nada aquí todavía'}</div>`}</div>
+      ${hidden > 0 ? `<div class="col-more">${hidden} más · <a href="#historico" data-go="historico">ver en Histórico</a></div>` : ''}
+    </section>`;
+  }).join('')}</div>`;
+  const where = f.modulo ? (() => { const m = Q.modulo(f.modulo), a = m && Q.area(m.id_sistema); return `${a?.nombre || ''} › ${m?.nombre || ''}`; })() : f.sistema ? Q.area(f.sistema)?.nombre : 'Todos los sistemas';
+  return `<div class="page-head"><div><div class="eyebrow">${esc(where || '')}</div><h1>Tablero</h1><p class="lede">Todas las cards de todos los sistemas y módulos. Arrastra para cambiar de estado; asigna personas desde cada card.</p></div>
+      ${logged ? `<div class="head-actions"><button class="btn btn-accent" data-act="card-new" data-estado="seguimiento">${icon('plus')} Nueva card</button></div>` : ''}</div>
+    ${metricsHtml(list, { people: true, key: 'tablero' })}
+    ${toolbar}${board}`;
+}
+
+/** Asignar personas a una card desde el Tablero (o cualquier vista) */
+function assignCard(c) {
+  if (!c) return;
+  let sel = splitList(c.asignados);
+  const m = Q.modulo(c.id_modulo), a = m && Q.area(m.id_sistema);
+  const el = Modal.open(`Asignar <span class="idtag">#${esc(c.id)}</span><div class="small text-body-secondary fw-normal mt-1" style="font-family:var(--font-body)">${esc(c.titulo)} · ${esc(a?.nombre || '')} › ${esc(m?.nombre || '')}</div>`,
+    `<div class="pick" id="asPeople">${CONFIG.USERS.map(u => `<button type="button" class="${sel.includes(u.user) ? 'on' : ''}" data-person="${esc(u.user)}">${avatar(u.user)}${esc(u.name)} <small>${esc(u.rol)}</small></button>`).join('')}</div>
+     <p class="small text-body-secondary mt-3 mb-0">Las personas que agregues reciben una notificación.</p>`,
+    `<button class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" id="asSave">Guardar</button>`, 'md');
+  $$('[data-person]', el).forEach(b => b.onclick = () => { const u = b.dataset.person; sel = sel.includes(u) ? sel.filter(x => x !== u) : [...sel, u]; b.classList.toggle('on'); });
+  $('#asSave', el).onclick = async () => {
+    const btn = $('#asSave', el); btn.disabled = true;
+    try {
+      const before = splitList(c.asignados);
+      const card = await Repo.save('cards', { id: c.id, asignados: sel.join(','), actualizado: stamp() });
+      await Notif.send(sel.filter(u => !before.includes(u)), 'asignacion', card || c, '');
+      Modal.close(); toast(sel.length ? `#${c.id} asignada a ${sel.map(u => userOf(u).name).join(', ')}` : `#${c.id} sin asignar`); render();
+    } catch (err) { toast(err.message, true); btn.disabled = false; }
+  };
 }
 
 /** Una card en formato de lista (Histórico y Recientes) */
@@ -1212,13 +1302,13 @@ function render() {
   if (!D()) return;                       // aún cargando
   crumbs(); renderAuth();
   const r = State.route;
-  const html = r.view === 'area' ? viewArea(r.id) : r.view === 'modulo' ? viewModulo(r.id) : r.view === 'historia' ? viewHistoria() : viewAreas();
+  const html = r.view === 'area' ? viewArea(r.id) : r.view === 'modulo' ? viewModulo(r.id) : r.view === 'historia' ? viewHistoria() : r.view === 'tablero' ? viewTablero() : viewAreas();
   const logged = !!Auth.current();
   $('#app').innerHTML = (!logged ? `<div class="banner">${icon('login')}<span>Estás en <b>modo lectura</b>. Inicia sesión para agregar, editar y comentar.</span></div>` : '') + html;
   highlight($('#app'));
   markClipped($('#app'));
   const m = r.view === 'modulo' ? Q.modulo(r.id) : r.view === 'area' ? Q.area(r.id) : null;
-  document.title = (m ? m.nombre + ' · ' : r.view === 'historia' ? 'Histórico · ' : '') + 'Sistemas y Módulos TFCA';
+  document.title = (m ? m.nombre + ' · ' : r.view === 'historia' ? 'Histórico · ' : r.view === 'tablero' ? 'Tablero · ' : '') + 'Sistemas y Módulos TFCA';
 }
 
 /* ------------------------------ Modal principal ------------------------------ */
@@ -1458,6 +1548,7 @@ function editCard(c, defaults = {}) {
   const isNew = !c;
   const st = {
     titulo: c?.titulo || '', estado: c?.estado || defaults.estado || 'seguimiento', prioridad: c?.prioridad || 'Media',
+    id_modulo: String(c?.id_modulo || defaults.id_modulo || ''),
     asignados: splitList(c?.asignados), hashtags: splitList(c?.hashtags).map(normTag),
     blocks: c ? Q.bloques(c.id).map(b => ({ ...b })) : [{ tipo: 'texto', contenido: '' }]
   };
@@ -1475,6 +1566,7 @@ function editCard(c, defaults = {}) {
   const roles = u => userOf(u).rol;
   const body = () => `
     <div class="mb-3"><label class="form-label small fw-semibold" for="edTitulo">Título</label><input class="form-control" id="edTitulo" maxlength="160" value="${esc(st.titulo)}" placeholder="¿Qué se necesita o qué se avanzó?"></div>
+    <div class="mb-3"><label class="form-label small fw-semibold" for="edModulo">Sistema › Módulo</label><select class="form-select" id="edModulo"><option value="">Elige el módulo…</option>${Q.areas().map(a => `<optgroup label="${esc(a.nombre)}">${Q.modulos(a.id).map(m => `<option value="${m.id}" ${String(m.id) === st.id_modulo ? 'selected' : ''}>${esc(a.nombre)} › ${esc(m.nombre)}</option>`).join('')}</optgroup>`).join('')}</select></div>
     <div class="row g-3 mb-3">
       <div class="col-sm-6"><label class="form-label small fw-semibold" for="edEstado">Estado</label><select class="form-select" id="edEstado">${CONFIG.ESTADOS.map(e => `<option value="${e.key}" ${e.key === st.estado ? 'selected' : ''}>${e.label}</option>`).join('')}</select></div>
       <div class="col-sm-6"><label class="form-label small fw-semibold" for="edPrio">Prioridad</label><select class="form-select" id="edPrio">${CONFIG.PRIORIDADES.map(p => `<option ${p === st.prioridad ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
@@ -1492,11 +1584,11 @@ function editCard(c, defaults = {}) {
       <span class="small text-body-secondary align-self-center">También puedes pegar una imagen (Ctrl+V).</span>
     </div>`;
   const foot = `<button class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" id="edSave">${isNew ? 'Crear card' : 'Guardar cambios'}</button>`;
-  const m = Q.modulo(isNew ? State.route.id : c.id_modulo);
+  const m = Q.modulo(st.id_modulo);
   const el = Modal.open(isNew ? `Nueva card <div class="small text-body-secondary fw-normal mt-1" style="font-family:var(--font-body)">${esc(m?.nombre || '')}</div>` : `Editar card <span class="idtag">#${esc(c.id)}</span>`, body(), foot);
 
   const sync = () => {   // copia lo escrito al estado antes de volver a pintar
-    st.titulo = $('#edTitulo', el).value; st.estado = $('#edEstado', el).value; st.prioridad = $('#edPrio', el).value;
+    st.titulo = $('#edTitulo', el).value; st.id_modulo = $('#edModulo', el).value; st.estado = $('#edEstado', el).value; st.prioridad = $('#edPrio', el).value;
     $$('[data-bval]', el).forEach(t => { st.blocks[t.dataset.bval].contenido = t.value; });
     $$('[data-blang]', el).forEach(s => { st.blocks[s.dataset.blang].lenguaje = s.value; });
   };
@@ -1540,14 +1632,15 @@ function editCard(c, defaults = {}) {
     const pending = $('#edTagIn', el).value.trim(); if (pending) addTag(pending);
     const titulo = st.titulo.trim();
     if (!titulo) { toast('Escribe un título para la card', true); return $('#edTitulo', el).focus(); }
+    if (!Q.modulo(st.id_modulo)) { toast('Elige el sistema y módulo de la card', true); return $('#edModulo', el).focus(); }
     const blocks = st.blocks.filter(b => b.tipo === 'archivo' ? b.fileName : String(b.contenido || '').trim());
     if (blocks.some(b => String(b.contenido || '').length > CONFIG.MAX_TEXTO)) { toast(`Un bloque supera ${CONFIG.MAX_TEXTO.toLocaleString('es-MX')} caracteres. Adjúntalo como archivo.`, true); return; }
     const btn = $('#edSave', el); btn.disabled = true;
     try {
       const now = stamp();
       const card = await Repo.save('cards', {
-        ...(c ? { id: c.id } : { id_modulo: Number(State.route.id), autor: Auth.me(), fecha_alta: now }),
-        titulo, estado: st.estado, prioridad: st.prioridad, asignados: st.asignados.join(','), hashtags: st.hashtags.join(','), actualizado: now
+        ...(c ? { id: c.id } : { autor: Auth.me(), fecha_alta: now }),
+        id_modulo: Number(st.id_modulo), titulo, estado: st.estado, prioridad: st.prioridad, asignados: st.asignados.join(','), hashtags: st.hashtags.join(','), actualizado: now
       });
       // Notificar solo a quienes se agregaron ahora
       const before = splitList(c?.asignados);
@@ -1596,7 +1689,8 @@ document.addEventListener('click', async e => {
     State.filters.tag = tg.dataset.tag;
     const inModal = !!tg.closest('.modal');
     if (inModal) { const c = Q.card(Modal.current); Modal.close(); if (c && State.route.view !== 'modulo') { go('modulo-' + c.id_modulo); return; } }
-    if (State.route.view === 'modulo') render();
+    if (State.route.view === 'tablero') State.tf.q = '#' + tg.dataset.tag;
+    if (State.route.view === 'modulo' || State.route.view === 'tablero') render();
     toast('Filtro: #' + tg.dataset.tag);
     return;
   }
@@ -1632,7 +1726,9 @@ document.addEventListener('click', async e => {
       case 'hq-clear': State.hq = ''; render(); $('#hQ')?.focus(); return;
       case 'notif-all': await Notif.read(Notif.unread().map(n => n.id)); renderBell(); toast('Notificaciones marcadas como leídas'); return;
       case 'prefs-reset': Prefs.reset(); applyTheme(); toast('Preferencias restablecidas'); return render();
-      case 'card-new': return editCard(null, { estado: a.dataset.estado });
+      case 'card-new': return editCard(null, { estado: a.dataset.estado, id_modulo: State.route.view === 'modulo' ? State.route.id : State.route.view === 'tablero' ? State.tf.modulo : '' });
+      case 'card-assign': return assignCard(Q.card(id));
+      case 'tf-clear': Object.keys(State.tf).forEach(k => { State.tf[k] = ''; }); return render();
     }
     return;
   }
@@ -1670,6 +1766,13 @@ document.addEventListener('input', e => {
   if (e.target.id === 'hQ') { clearTimeout(qTimer); qTimer = setTimeout(() => { State.hq = e.target.value; const pos = e.target.selectionStart; render(); const i = $('#hQ'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 250); return; }
   if (e.target.id === 'fQ') { clearTimeout(qTimer); qTimer = setTimeout(() => { State.filters.q = e.target.value.trim(); const pos = e.target.selectionStart; render(); const i = $('#fQ'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 250); return; }
   if (map[e.target.id]) { State.filters[map[e.target.id]] = e.target.value; render(); }
+  const tmap = { tSistema: 'sistema', tModulo: 'modulo', tPersona: 'persona', tPrio: 'prio' };
+  if (e.target.id === 'tQ') { clearTimeout(qTimer); qTimer = setTimeout(() => { State.tf.q = e.target.value; const pos = e.target.selectionStart; render(); const i = $('#tQ'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 250); return; }
+  if (tmap[e.target.id]) {
+    State.tf[tmap[e.target.id]] = e.target.value;
+    if (e.target.id === 'tModulo' && e.target.value) State.tf.sistema = String(Q.modulo(e.target.value)?.id_sistema || '');   // mantiene la relación sistema → módulo
+    render();
+  }
 });
 // Ordenar arrastrando: filas con data-sort="sistemas" | "modulos"
 let sortDrag = null;

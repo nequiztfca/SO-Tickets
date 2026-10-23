@@ -52,7 +52,7 @@ const SHEETS = {
 };
 const NUMERIC = ['id', 'id_sistema', 'id_modulo', 'id_card', 'orden', 'estatus', 'size'];
 const BOOLEAN = ['hecho', 'leida'];
-const ESTADOS = ['seguimiento', 'proceso', 'finalizado'];
+const ESTADOS = ['seguimiento', 'proceso', 'finalizado', 'produccion'];   // seguimiento = "Por hacer"
 const TIPOS_BLOQUE = ['texto', 'codigo', 'archivo'];
 
 /* ============================== Instalación ============================== */
