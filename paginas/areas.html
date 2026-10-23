@@ -90,6 +90,18 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
 .spin { width: 12px; height: 12px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex: none; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .post.saving { opacity: .72; pointer-events: none; }
+/* ---------- Carga inicial ---------- */
+.loader-page { padding-top: 26px; }
+.loader-msg { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; color: var(--fg); }
+.loader-msg small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
+.spin-lg { width: 30px; height: 30px; border-width: 3px; }
+.skel { border-radius: 12px; background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 45%, var(--surface) 90%); background-size: 220% 100%; animation: shimmer 1.3s ease-in-out infinite; border: 1px solid var(--line); }
+.skel-metrics { height: 92px; margin-bottom: 18px; }
+.skel-row { height: 104px; margin-bottom: 12px; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.ex-preview { background: var(--surface-2); border-radius: 10px; padding: 10px 14px; font-size: .88rem; }
+.ex-st { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; margin-left: 10px; }
 .post.saving .pid::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .spin, .post.saving .pid::before { animation-duration: 2s; } }
 .pill-demo { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--st-seg); border: 1px solid color-mix(in srgb, var(--st-seg) 45%, transparent); border-radius: 20px; padding: 2px 8px; }
@@ -434,6 +446,7 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
   <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
   <symbol id="i-go" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
@@ -458,7 +471,13 @@ button.mchip:hover { border-color: var(--accent); color: var(--accent); }
   </div>
 </header>
 
-<main class="wrap" id="app" aria-live="polite"></main>
+<main class="wrap" id="app" aria-live="polite">
+  <div class="loader-page" role="status">
+    <div class="loader-msg"><span class="spin spin-lg" aria-hidden="true"></span><span><b>Cargando sistemas y módulos…</b><small id="loaderSub">Un momento, por favor.</small></span></div>
+    <div class="skel skel-metrics"></div>
+    <div class="skel skel-row"></div><div class="skel skel-row"></div><div class="skel skel-row"></div>
+  </div>
+</main>
 
 <!-- Modal principal (detalle, editor y formularios) -->
 <div class="modal fade" id="mMain" tabindex="-1" aria-hidden="true">
@@ -1180,11 +1199,11 @@ function viewTablero() {
 /** Cambia el estado al instante en pantalla y guarda en segundo plano (se revierte si falla) */
 async function moveCard(c, estado, after) {
   if (!c || c.estado === estado) return;
-  const prev = { estado: c.estado, actualizado: c.actualizado }, key = String(c.id);
-  c.estado = estado; c.actualizado = stamp();
+  const prev = { estado: c.estado, actualizado: c.actualizado, fecha_estado: c.fecha_estado }, key = String(c.id);
+  c.estado = estado; c.actualizado = stamp(); c.fecha_estado = c.actualizado;
   Saving.cards.add(key); Saving.show(); render(); after?.();
   try {
-    await Repo.save('cards', { id: c.id, estado, actualizado: c.actualizado });
+    await Repo.save('cards', { id: c.id, estado, actualizado: c.actualizado, fecha_estado: c.fecha_estado });
     toast(`#${c.id} → ${ST[estado].label}`);
     Notif.send(Notif.watchers(c), 'estado', c, 'a ' + ST[estado].label).catch(() => {});
   } catch (err) {
@@ -1257,7 +1276,8 @@ function viewHistoria() {
   const groups = [];
   list.forEach(c => { const k = dayKey(c.fecha_alta); const g = groups.at(-1); if (g && g.k === k) g.items.push(c); else groups.push({ k, items: [c] }); });
   const item = histItem;
-  return `<div class="page-head"><div><div class="eyebrow">Todos los sistemas</div><h1>Histórico</h1><p class="lede">${esc(note)}</p></div></div>
+  return `<div class="page-head"><div><div class="eyebrow">Todos los sistemas</div><h1>Histórico</h1><p class="lede">${esc(note)}</p></div>
+      <div class="head-actions"><button class="btn btn-ghost" data-act="informe" title="Informe por integrante, con título, descripción y estatus">${icon('download')} Exportar informe (Excel)</button></div></div>
     <div class="hist-search">${icon('search')}<input class="form-control" id="hQ" value="${esc(State.hq)}" placeholder="Buscar en todos los sistemas: título, texto, código, archivo, #hashtag, persona o #ID" aria-label="Buscar en todos los sistemas">${State.hq ? `<button class="btn-icon" data-act="hq-clear" title="Limpiar búsqueda">${icon('x')}</button>` : ''}</div>
     ${groups.length ? `<div class="hist">${groups.map(g => `<section class="hist-day"><h2>${esc(dayLabel(g.k))}</h2>${g.items.map(item).join('')}</section>`).join('')}</div>`
       : `<div class="empty">${q ? `No hay cards que coincidan con «${esc(State.hq)}».` : 'Todavía no hay cards.'}</div>`}`;
@@ -1509,6 +1529,7 @@ function openCard(id) {
   const body = `
     <div class="d-meta mb-3">
       <span class="state-switch" role="group" aria-label="Estado">${CONFIG.ESTADOS.map(e => `<button type="button" class="c-${e.key} ${c.estado === e.key ? 'on' : ''}" data-state="${e.key}" ${logged ? '' : 'disabled'}><span class="dot"></span>${e.short}</button>`).join('')}</span>
+      <span class="small" title="Fecha en que tomó su estatus actual">${esc(ST[c.estado]?.short || '')} desde ${esc(dmy(fechaEstado(c)))}</span>
       ${prioPill(c.prioridad)}
       <span>${avatar(c.autor)} ${esc(userOf(c.autor).name)} · ${fmtDate(c.fecha_alta)}</span>
     </div>
@@ -1652,7 +1673,8 @@ function editCard(c, defaults = {}) {
       const now = stamp();
       const card = await Repo.save('cards', {
         ...(c ? { id: c.id } : { autor: Auth.me(), fecha_alta: now }),
-        id_modulo: Number(st.id_modulo), titulo, estado: st.estado, prioridad: st.prioridad, asignados: st.asignados.join(','), hashtags: st.hashtags.join(','), actualizado: now
+        id_modulo: Number(st.id_modulo), titulo, estado: st.estado, prioridad: st.prioridad, asignados: st.asignados.join(','), hashtags: st.hashtags.join(','), actualizado: now,
+        ...(!c || c.estado !== st.estado ? { fecha_estado: now } : {})
       });
       // Notificar solo a quienes se agregaron ahora
       const before = splitList(c?.asignados);
@@ -1740,6 +1762,7 @@ document.addEventListener('click', async e => {
       case 'prefs-reset': Prefs.reset(); applyTheme(); toast('Preferencias restablecidas'); return render();
       case 'card-new': return editCard(null, { estado: a.dataset.estado, id_modulo: State.route.view === 'modulo' ? State.route.id : State.route.view === 'tablero' ? State.tf.modulo : '' });
       case 'card-assign': return assignCard(Q.card(id));
+      case 'informe': return formInforme();
       case 'go-mod': Object.keys(State.filters).forEach(k => { State.filters[k] = ''; }); return go('modulo-' + id);
       case 'tf-clear': Object.keys(State.tf).forEach(k => { State.tf[k] = ''; }); return render();
     }
@@ -1865,6 +1888,206 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyThe
 // Si quien aloja la página cambia el tema (data-theme), lo seguimos mientras no haya preferencia guardada
 new MutationObserver(() => { if (!Prefs.get('tema', LS.get('tfca_theme'))) applyTheme(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+
+/* ------------------------------ Excel (.xlsx) sin librerías externas ------------------------------
+ * Genera un libro de Excel real (Office Open XML en un ZIP sin compresión) directamente en el navegador. */
+const XLSX = (() => {
+  const enc = new TextEncoder();
+  const T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  function zip(files) {
+    const parts = [], central = []; let off = 0;
+    const d = new Date(), time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    for (const f of files) {
+      const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+      const h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+      h.setUint16(10, time, true); h.setUint16(12, date, true); h.setUint32(14, crc, true);
+      h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(h.buffer), name, data);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint16(12, time, true); c.setUint16(14, date, true); c.setUint32(16, crc, true);
+      c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+      central.push(new Uint8Array(c.buffer), name);
+      off += 30 + name.length + data.length;
+    }
+    const size = central.reduce((n, p) => n + p.length, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+    return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  const x = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const colName = n => { let s = ''; n++; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  // Estilos (índices de cellXfs)
+  const S = { titulo: 1, sub: 2, enc: 3, txt: 4, neg: 5, seguimiento: 6, proceso: 7, finalizado: 8, produccion: 9, num: 10, totTxt: 11, totNum: 12 };
+  const font = (o = '') => `<font>${o}<sz val="${/sz/.test(o) ? '' : 11}"/><name val="Calibri"/><family val="2"/></font>`.replace('<sz val=""/>', '');
+  const STYLES = HEAD + `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="9">${[
+    '', '<b/>', '<b/><color rgb="FFFFFFFF"/>', '<b/><sz val="15"/><color rgb="FF8A1C3B"/>', '<i/><sz val="10"/><color rgb="FF6D6266"/>',
+    '<b/><color rgb="FFA8701A"/>', '<b/><color rgb="FF2563A8"/>', '<b/><color rgb="FF2F7D4F"/>', '<b/><color rgb="FF6B4FBF"/>'].map(font).join('')}</fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF8A1C3B"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF4E3E8"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
+<border>${['left', 'right', 'top', 'bottom'].map(k => `<${k} style="thin"><color rgb="FFD9D2D5"/></${k}>`).join('')}<diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="13">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+${[5, 6, 7, 8].map(f => `<xf numFmtId="0" fontId="${f}" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>`).join('\n')}
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>
+<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  /** sh = { name, cols:[anchos], rows:[{ cells:[{ v, s }], h }], merges:['A1:H1'], freeze:4, filter:'A4:H20' } */
+  function sheetXml(sh, i) {
+    const rows = sh.rows.map((r, ri) => `<row r="${ri + 1}"${r.h ? ` ht="${r.h}" customHeight="1"` : ''}>${(r.cells || []).map((c, ci) => {
+      if (!c) return '';
+      const ref = colName(ci) + (ri + 1), s = c.s ? ` s="${c.s}"` : '';
+      if (c.v == null || c.v === '') return c.s ? `<c r="${ref}"${s}/>` : '';
+      return typeof c.v === 'number' ? `<c r="${ref}"${s}><v>${c.v}</v></c>` : `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${x(c.v)}</t></is></c>`;
+    }).join('')}</row>`).join('');
+    const pane = sh.freeze ? `<pane ySplit="${sh.freeze}" topLeftCell="A${sh.freeze + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${sh.freeze + 1}" sqref="A${sh.freeze + 1}"/>` : '';
+    return HEAD + `<worksheet ${NS}><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"${i === 0 ? ' tabSelected="1"' : ''}>${pane}</sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/><cols>${sh.cols.map((w, k) => `<col min="${k + 1}" max="${k + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>
+<sheetData>${rows}</sheetData>${sh.filter ? `<autoFilter ref="${sh.filter}"/>` : ''}${sh.merges?.length ? `<mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}
+<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  }
+  function libro(sheets) {
+    const safe = n => String(n).replace(/[\[\]:*?/\\]/g, ' ').slice(0, 31);
+    const names = sheets.map(sh => safe(sh.name));
+    const defs = sheets.map((sh, i) => sh.filter ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${names[i].replace(/'/g, "''")}'!${sh.filter.replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}</definedName>` : '').join('');
+    return zip([
+      { name: '[Content_Types].xml', data: HEAD + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
+      { name: '_rels/.rels', data: HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+      { name: 'xl/workbook.xml', data: HEAD + `<workbook ${NS}><bookViews><workbookView/></bookViews><sheets>${names.map((n, i) => `<sheet name="${x(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${defs ? `<definedNames>${defs}</definedNames>` : ''}</workbook>` },
+      { name: 'xl/_rels/workbook.xml.rels', data: HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+      { name: 'xl/styles.xml', data: STYLES },
+      ...sheets.map((sh, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(sh, i) }))
+    ]);
+  }
+  return { libro, S, colName };
+})();
+
+/* ------------------------------ Informe de Histórico ------------------------------
+ * Una fila por integrante y card trabajada en el periodo (alta, actualización o cambio de estado).
+ * Columnas: integrante, rol, ID, sistema, módulo, título, descripción breve (sin checklist) y estatus con su fecha. */
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dmy = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/); return m ? `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}:${m[5]}` : ''}` : String(s || ''); };
+const fechaEstado = c => c.fecha_estado || c.actualizado || c.fecha_alta;
+function informeFilas({ desde, hasta, persona = '', sistema = '' }) {
+  const enRango = s => { const d = String(s || '').slice(0, 10); return !!d && d >= desde && d <= hasta; };
+  const nombre = u => u === '__none' ? 'Sin asignar' : userOf(u).name;
+  const out = [];
+  Q.cards().forEach(c => {
+    const m = Q.modulo(c.id_modulo), a = m && Q.area(m.id_sistema);
+    if (sistema && String(a?.id) !== String(sistema)) return;
+    if (![c.fecha_alta, c.actualizado, c.fecha_estado].some(enRango)) return;
+    const gente = splitList(c.asignados);
+    (gente.length ? gente : ['__none']).forEach(u => { if (!persona || persona === u) out.push({ u, nombre: nombre(u), c, m, a }); });
+  });
+  return out.sort((x, y) => x.nombre.localeCompare(y.nombre, 'es') || String(fechaEstado(y.c)).localeCompare(String(fechaEstado(x.c))) || y.c.id - x.c.id);
+}
+function descripcionBreve(c, max = 300) {
+  const t = Q.bloques(c.id).find(b => b.tipo === 'texto');
+  const s = t ? String(t.contenido).replace(TRAILING_TAGS, '').replace(/\s+/g, ' ').trim() : '';
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
+}
+function exportarInforme(f) {
+  const filas = informeFilas(f), S = XLSX.S, N = 8, ult = XLSX.colName(N - 1);
+  const sis = f.sistema ? Q.area(f.sistema)?.nombre : 'Todos';
+  const per = f.persona ? (f.persona === '__none' ? 'Sin asignar' : userOf(f.persona).name) : 'Todos';
+  const sub = `Del ${dmy(f.desde)} al ${dmy(f.hasta)} · Integrante: ${per} · Sistema: ${sis} · Generado el ${dmy(stamp())}${Auth.me() ? ' por ' + userOf(Auth.me()).name : ''}`;
+  const enc = ['Integrante', 'Rol', 'ID', 'Sistema', 'Módulo', 'Título', 'Descripción breve', 'Estatus (fecha)'];
+  const informe = {
+    name: 'Informe', cols: [22, 14, 8, 24, 28, 40, 60, 26], freeze: 4,
+    merges: [`A1:${ult}1`, `A2:${ult}2`], filter: filas.length ? `A4:${ult}${4 + filas.length}` : '',
+    rows: [
+      { cells: [{ v: 'Informe de actividades · Sistemas y Módulos TFCA', s: S.titulo }], h: 24 },
+      { cells: [{ v: sub, s: S.sub }] }, { cells: [] },
+      { cells: enc.map(v => ({ v, s: S.enc })), h: 20 },
+      ...filas.map(({ u, nombre, c, m, a }) => ({ cells: [
+        { v: nombre, s: S.neg }, { v: u === '__none' ? '' : userOf(u).rol, s: S.txt }, { v: Number(c.id), s: S.num },
+        { v: a?.nombre || '', s: S.txt }, { v: m?.nombre || '', s: S.txt }, { v: c.titulo, s: S.txt },
+        { v: descripcionBreve(c), s: S.txt }, { v: `${ST[c.estado]?.label || c.estado} · ${dmy(fechaEstado(c))}`, s: S[c.estado] || S.txt }
+      ] }))
+    ]
+  };
+  // Resumen por integrante y estatus
+  const personas = [...new Set(filas.map(r => r.u))];
+  const cuenta = (u, e) => filas.filter(r => r.u === u && r.c.estado === e).length;
+  const encR = ['Integrante', 'Rol', ...CONFIG.ESTADOS.map(e => e.label), 'Total'];
+  const resumen = {
+    name: 'Resumen', cols: [24, 14, ...CONFIG.ESTADOS.map(() => 13), 10], freeze: 4, merges: [`A1:${XLSX.colName(encR.length - 1)}1`, `A2:${XLSX.colName(encR.length - 1)}2`],
+    rows: [
+      { cells: [{ v: 'Resumen por integrante', s: S.titulo }], h: 24 }, { cells: [{ v: sub, s: S.sub }] }, { cells: [] },
+      { cells: encR.map(v => ({ v, s: S.enc })), h: 20 },
+      ...personas.map(u => ({ cells: [
+        { v: filas.find(r => r.u === u).nombre, s: S.neg }, { v: u === '__none' ? '' : userOf(u).rol, s: S.txt },
+        ...CONFIG.ESTADOS.map(e => ({ v: cuenta(u, e.key), s: S.num })), { v: filas.filter(r => r.u === u).length, s: S.num }
+      ] })),
+      { cells: [{ v: 'Total', s: S.totTxt }, { v: '', s: S.totTxt }, ...CONFIG.ESTADOS.map(e => ({ v: filas.filter(r => r.c.estado === e.key).length, s: S.totNum })), { v: filas.length, s: S.totNum }] }
+    ]
+  };
+  const blob = XLSX.libro([informe, resumen]);
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `informe-historico_${f.desde}_a_${f.hasta}.xlsx` });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return filas.length;
+}
+function formInforme() {
+  const hoy = new Date(), ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const f = { desde: ymd(ini), hasta: ymd(hoy), persona: '', sistema: '' };
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+  const el = Modal.open(`${icon('download')} Exportar informe a Excel`, `
+    <div class="d-flex gap-2 flex-wrap mb-3" role="group" aria-label="Periodos rápidos">
+      <button type="button" class="btn btn-sm btn-ghost" data-per="mes">Este mes</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-per="ant">Mes anterior</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-per="7">Últimos 7 días</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-per="30">Últimos 30 días</button>
+    </div>
+    <div class="row g-3">
+      <div class="col-sm-6"><label class="form-label small fw-semibold" for="exDesde">Desde</label><input type="date" class="form-control" id="exDesde" value="${f.desde}"></div>
+      <div class="col-sm-6"><label class="form-label small fw-semibold" for="exHasta">Hasta</label><input type="date" class="form-control" id="exHasta" value="${f.hasta}"></div>
+      <div class="col-sm-6"><label class="form-label small fw-semibold" for="exPersona">Integrante</label><select class="form-select" id="exPersona">${opt('', 'Todos los integrantes', '')}${CONFIG.USERS.map(u => opt(u.user, u.name, '')).join('')}${opt('__none', 'Sin asignar', '')}</select></div>
+      <div class="col-sm-6"><label class="form-label small fw-semibold" for="exSistema">Sistema</label><select class="form-select" id="exSistema">${opt('', 'Todos los sistemas', '')}${Q.areas().map(a => opt(a.id, a.nombre, '')).join('')}</select></div>
+    </div>
+    <div class="ex-preview mt-3" id="exPrev" aria-live="polite"></div>
+    <p class="small text-body-secondary mt-2 mb-0">Incluye las cards creadas, actualizadas o que cambiaron de estatus en el periodo, una fila por integrante asignado. Columnas: integrante, rol, ID, sistema, módulo, título, descripción breve y estatus con la fecha en que lo tomó. No incluye checklist. Trae una segunda hoja con el resumen por integrante.</p>`,
+    `<button class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" id="exGo">${icon('download')} Descargar Excel</button>`, 'lg');
+  const leer = () => { f.desde = $('#exDesde', el).value; f.hasta = $('#exHasta', el).value; f.persona = $('#exPersona', el).value; f.sistema = $('#exSistema', el).value; };
+  const prev = () => {
+    leer();
+    const ok = f.desde && f.hasta && f.desde <= f.hasta, filas = ok ? informeFilas(f) : [];
+    const n = new Set(filas.map(r => r.u)).size, by = CONFIG.ESTADOS.map(e => [e, filas.filter(r => r.c.estado === e.key).length]);
+    $('#exPrev', el).innerHTML = !ok ? '<span class="text-danger">Revisa las fechas: «Desde» debe ser anterior o igual a «Hasta».</span>'
+      : filas.length ? `<b>${filas.length}</b> fila${filas.length === 1 ? '' : 's'} · ${n} integrante${n === 1 ? '' : 's'} <span class="ex-st">${by.filter(([, k]) => k).map(([e, k]) => `<span class="st c-${e.key}"><span class="dot"></span>${esc(e.short)} ${k}</span>`).join('')}</span>`
+      : 'No hay actividad en ese periodo con esos filtros.';
+    $('#exGo', el).disabled = !ok || !filas.length;
+  };
+  $$('[data-per]', el).forEach(b => b.onclick = () => {
+    const h = new Date(); let d1, d2 = h;
+    if (b.dataset.per === 'mes') d1 = new Date(h.getFullYear(), h.getMonth(), 1);
+    else if (b.dataset.per === 'ant') { d1 = new Date(h.getFullYear(), h.getMonth() - 1, 1); d2 = new Date(h.getFullYear(), h.getMonth(), 0); }
+    else d1 = new Date(h.getTime() - (Number(b.dataset.per) - 1) * 864e5);
+    $('#exDesde', el).value = ymd(d1); $('#exHasta', el).value = ymd(d2); prev();
+  });
+  ['exDesde', 'exHasta', 'exPersona', 'exSistema'].forEach(id => { $('#' + id, el).onchange = prev; $('#' + id, el).oninput = prev; });
+  prev();
+  $('#exGo', el).onclick = () => {
+    leer();
+    try { const n = exportarInforme(f); Modal.close(); toast(`Informe descargado (${n} fila${n === 1 ? '' : 's'})`); }
+    catch (err) { toast('No se pudo generar el Excel: ' + err.message, true); }
+  };
+}
+
 /* ------------------------------ Inicio ------------------------------ */
 (async function init() {
   applyTheme();
@@ -1872,8 +2095,10 @@ new MutationObserver(() => { if (!Prefs.get('tema', LS.get('tfca_theme'))) apply
   $('#demoPill').hidden = Repo !== LocalRepo;
   $('#lgHint').textContent = Repo === LocalRepo ? `Demo: usa cualquiera de los usuarios del equipo (p. ej. ${CONFIG.USERS[0].user}).` : '';
   window.addEventListener('hashchange', render);
+  const lento = setTimeout(() => { const s = $('#loaderSub'); if (s) s.textContent = Repo === RemoteRepo ? 'Conectando con Google Sheets; la primera carga puede tardar unos segundos.' : 'Preparando los datos de ejemplo.'; }, 1500);
   try { await Repo.load(); }      // lectura pública
   catch (err) { $('#app').innerHTML = `<div class="empty" style="margin-top:30px">No se pudieron cargar los datos: ${esc(err.message)}</div>`; return; }
+  finally { clearTimeout(lento); }
   render();
   // Con Google Sheets: busca cambios (y notificaciones nuevas) de vez en cuando
   if (Repo === RemoteRepo) setInterval(async () => {

@@ -139,6 +139,7 @@
   .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
   .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
   .chip-sub:disabled { cursor:default; }
+  .carga { display:flex; align-items:center; gap:14px; margin:40px auto; padding:18px 22px; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .btn-ocultar { opacity:.7; } .btn-ocultar:hover { opacity:1; }
   .oculto-col { opacity:.8; } .oculto-col small { font-weight:400; }
   .col-head-sub { align-items:flex-start; }
@@ -717,6 +718,12 @@ function htmlMatriz() {
 function render() {
   cerrarPopover();
   const v = VISTAS[vista];
+  if (MODO === 'drive' && !driveListo && !cargaFallida) {      // primera carga desde Google Sheets
+    $('#board').className = 'board';
+    $('#board').innerHTML = `<div class="carga" role="status"><div class="spinner-border text-success" aria-hidden="true"></div>
+      <div><b>Cargando accesos…</b><div class="small text-muted" id="cargaSub">Leyendo áreas, roles, empleados y módulos de Google Sheets.</div></div></div>`;
+    return;
+  }
   document.body.classList.toggle('editable', PUEDE_EDITAR);
   document.body.classList.toggle('compacto', $('#chkCompacto').checked);
   document.querySelectorAll('.solo-local').forEach(el => el.classList.toggle('d-none', MODO !== 'local'));
@@ -1247,6 +1254,7 @@ function confirmar(msg, ok = 'Continuar') {
      POST { action:'tableroLeer' | 'tableroGuardar', key, user, data }   (áreas, roles, empleados, permisos)
      POST { action:'save' | 'remove', entity:'sistemas' | 'modulos', ... } (módulos y subsistemas)
    ===================================================================== */
+let cargaFallida = false;
 let driveListo = false, pendiente = false, timerAuto = null, sincronizando = false, otraVez = false, ultimoSync = null;
 
 function cambio() {
@@ -1355,6 +1363,7 @@ async function cargarDrive({ silencioso = false } = {}) {
   } catch (e) {
     estadoSync('error');
     if (!driveListo) {
+      cargaFallida = true;
       // Sin datos confiables de Drive no se permite editar (evita sobrescribir la hoja)
       PUEDE_EDITAR = false; estadoSesion(); render();
     }
