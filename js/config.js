@@ -20,10 +20,10 @@ window.ENV = {
   // rol: "tipo de persona" para filtrar en Sistemas.
   // Si cambias un "user", cámbialo también en CFG.USERS de SistemasTFCA.gs.
   USERS: [
-    { user: 'nexNekiz@',  pass: 'Tfca2026!', name: 'nekiz',     color: '#4f46e5', role: 'admin', rol: 'Líder' },
+    { user: 'nexNekiz@',  pass: 'Tfca2026!', name: 'nekiz',     color: '#4f46e5', role: 'admin', rol: 'DBA' },
     { user: 'Brandom12@', pass: 'Tfca2026!', name: 'Brandom',   color: '#0891b2', role: 'user',  rol: 'Desarrollo' },
     { user: 'Edd234',     pass: 'Tfca2026!', name: 'Edwin',     color: '#16a34a', role: 'user',  rol: 'Desarrollo' },
-    { user: 'nantoree:)', pass: 'Tfca2026!', name: 'Nancy',     color: '#d97706', role: 'user',  rol: 'QA' },
+    { user: 'nantoree:)', pass: 'Tfca2026!', name: 'Nancy',     color: '#d97706', role: 'user',  rol: 'Lider' },
     { user: 'usuario5',   pass: 'Tfca2026!', name: 'Usuario 5', color: '#db2777', role: 'user',  rol: 'Soporte' }
   ]
 };

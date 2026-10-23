@@ -43,7 +43,7 @@ const CFG = {
 const SHEETS = {
   // spd y color los usa el Tablero de accesos (los sistemas son sus "módulos")
   sistemas:       { name: 'Sistemas',       cols: ['id', 'nombre', 'folder', 'orden', 'estatus', 'fecha_alta', 'descripcion', 'spd', 'color'] },
-  modulos:        { name: 'Modulos',        cols: ['id', 'id_sistema', 'nombre', 'archivo_subsistema', 'orden', 'estatus', 'fecha_alta'] },
+  modulos:        { name: 'Modulos',        cols: ['id', 'id_sistema', 'nombre', 'archivo_subsistema', 'orden', 'estatus', 'fecha_alta', 'orden_flujo'] },   // orden_flujo: orden en el flujo del Tablero de accesos
   cards:          { name: 'Cards',          cols: ['id', 'id_modulo', 'titulo', 'estado', 'prioridad', 'asignados', 'hashtags', 'autor', 'fecha_alta', 'actualizado'] },
   bloques:        { name: 'Bloques',        cols: ['id', 'id_card', 'tipo', 'contenido', 'lenguaje', 'fileName', 'mime', 'size', 'url', 'fileId', 'orden'] },
   checklist:      { name: 'Checklist',      cols: ['id', 'id_card', 'texto', 'hecho', 'autor', 'fecha_alta'] },
@@ -215,6 +215,7 @@ function sheet_(ent) {
   const def = SHEETS[ent], ss = ss_();
   let sh = ss.getSheetByName(def.name);
   if (!sh) { sh = ss.insertSheet(def.name); header_(sh, def.cols); }          // por si no se corrió setup()
+  else if (sh.getLastRow() > 0 && sh.getLastColumn() < def.cols.length) header_(sh, def.cols);   // columna nueva (p. ej. orden_flujo)
   return (SH_CACHE_[ent] = sh);
 }
 function readAll_(ent) {

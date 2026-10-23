@@ -84,6 +84,9 @@
   .editable .prow:not(.phead):hover { background:#f2f7ff; }
   .prow.drag { cursor:grab; }
   .prow.pendiente .c-nombre { color:#98a2ad; font-style:italic; }
+  .sub-acc { display:block; font-size:.68rem; color:#5f6b76; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub-pick { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.75rem; padding:2px 0 4px 10px; }
+  .sub-pick label { display:inline-flex; gap:4px; align-items:center; }
   .pbody { min-height:38px; }
   .pbody:empty::after { content:attr(data-empty); display:block; padding:10px; color:#98a2ad; text-align:center; font-style:italic; }
   .sortable-ghost { opacity:.4; background:#e3f2fd !important; }
@@ -136,6 +139,12 @@
   .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
   .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
   .chip-sub:disabled { cursor:default; }
+  .col-head-sub { align-items:flex-start; }
+  .col-head-sub .handle, .col-head-sub .col-handle, .col-head-sub .orden { margin-top:3px; }
+  .min-w-0 { min-width:0; }
+  .sub-titulo { font-size:1rem; line-height:1.25; }
+  .sis-mini { display:block; max-width:100%; border:0; background:none; padding:0; color:rgba(255,255,255,.82); font-size:.7rem; font-weight:500; letter-spacing:.02em; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sis-mini:not(:disabled):hover { color:#fff; text-decoration:underline; }
   .folder-tag { font-family:ui-monospace, Consolas, monospace; font-size:.7rem; background:rgba(255,255,255,.25); border-radius:4px; padding:1px 5px; }
 
   /* ---------- Confirmación dentro de la página ---------- */
@@ -382,7 +391,7 @@ function mapCatalogo(sistemas = [], modulos = [], cards = {}) {
     modulos: sistemas.filter(x => String(x.estatus ?? 1) !== '0').map((x, i) => ({ id:num(x.id), nombre:String(x.nombre || ''), folder:String(x.folder || ''),
       orden:num(x.orden), spd:String(x.spd || ''), color:color(x.color, i) })),
     subs: modulos.filter(x => String(x.estatus ?? 1) !== '0').map(x => ({ id:num(x.id), idSistema:num(x.id_sistema), nombre:String(x.nombre || ''),
-      archivo:String(x.archivo_subsistema || ''), orden:num(x.orden) })),
+      archivo:String(x.archivo_subsistema || ''), orden:num(x.orden), flujo:num(x.orden_flujo) })),
     cardsPorSub: porSub
   };
 }
@@ -441,6 +450,10 @@ const empDe   = id => db.empleados.find(p => p.id === id);
 const modDe   = id => db.modulos.find(m => m.id === id);
 const nombreCompleto = p => [p.nombre, p.paterno, p.materno].filter(Boolean).join(' ').trim();
 const permiso = (u, m) => db.permisos.find(x => x.u === u && x.m === m);
+/* Acceso por subsistema: x.s = "1,6" (ids de la hoja Modulos); vacío = todo el sistema */
+const normSubs = v => String(v ?? '').split(/[,;\s]+/).map(Number).filter(n => n > 0).join(',');
+const subsIds = x => x && x.s ? String(x.s).split(',').map(Number).filter(Boolean) : [];
+const subsTexto = x => subsIds(x).map(id => db.subs.find(s => s.id === id)?.nombre || '#' + id).join(', ');
 const subsDe = m => db.subs.filter(s => s.idSistema === m);
 const modulosDe = u => db.permisos.filter(x => x.u === u).map(x => modDe(x.m)).filter(Boolean);
 const empleadosDeModulo = m => db.permisos.filter(x => x.m === m).map(x => empDe(x.u)).filter(Boolean);
@@ -456,7 +469,7 @@ const VISTAS = {
   areas:   { key:'area',   coleccion:()=>db.areas,   campo:'areaId', nuevo:'Área',
              hint:'Arrastra filas entre columnas para cambiar de área · ⋮⋮ reordena columnas · clic en una fila para editar.' },
   modulos: { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Los módulos son los sistemas de Sistemas y Módulos (se editan en ambos lados) · ícono de persona = agregar o quitar personas · ✕ = quitar acceso · arrastra a otro módulo para dar acceso · ⋮⋮ reordena · ▸ subsistemas.' },
+             hint:'Cada columna es un módulo (subsistema) con su sistema debajo · ⋮⋮ arrastra columnas para ordenar el flujo · arrastra personas para darles acceso · ✕ quita el acceso · clic en el sistema para editarlo.' },
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
              hint:'Arrastra filas para cambiar el rol de una persona · "▸ módulos" despliega los módulos del rol; "Asignar" los da o quita a todo el rol.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
@@ -477,16 +490,16 @@ function badgesPermiso(p) {
     `<span class="perm ${p[k] > 1 ? 'v2' : p[k] > 0 ? 'on' : ''}" title="${txt}: ${p[k]}">${l}</span>`).join('');
 }
 
-function fila(p, { drag = false, modulo = null } = {}) {
+function fila(p, { drag = false, modulo = null, sub = null } = {}) {
   const rol = rolDe(p.rolId), area = areaDe(p.areaId), nc = nombreCompleto(p);
   return `<div class="prow ${drag && PUEDE_EDITAR ? 'drag' : ''} ${nc ? '' : 'pendiente'}" data-pid="${p.id}">
     <div class="text-end">${p.id}</div>
     <div class="c-usuario">${esc(p.usuario) || '—'}</div>
     <div class="c-idrol text-end">${p.rolId ?? '—'}</div>
     <div class="c-rol" title="${esc(rol?.nombre)}">${esc(rol?.nombre || 'SIN ROL')}</div>
-    <div class="c-nombre" title="${esc(nc)} · ${esc(area?.nombre || 'Sin área')}"><span class="dot" style="background:${area?.color || '#b0bec5'}"></span>${esc(nc || '(SIN DATOS DE EMPLEADO)')}</div>
-    <div class="c-perm">${modulo && PUEDE_EDITAR
-      ? `<button class="btn-quitar m-0" data-act="quitar" data-m="${modulo}" title="Quitar de este módulo"><i class="bi bi-x-lg"></i></button>` : ''}</div>
+    <div class="c-nombre" title="${esc(nc)} · ${esc(area?.nombre || 'Sin área')}${modulo && subsIds(permiso(p.id, modulo)).length ? ' · Solo: ' + esc(subsTexto(permiso(p.id, modulo))) : ''}"><span class="dot" style="background:${area?.color || '#b0bec5'}"></span>${esc(nc || '(SIN DATOS DE EMPLEADO)')}${modulo && subsIds(permiso(p.id, modulo)).length ? `<span class="sub-acc"><i class="bi bi-diagram-2"></i> ${esc(subsTexto(permiso(p.id, modulo)))}</span>` : ''}</div>
+    <div class="c-perm">${(modulo || sub) && PUEDE_EDITAR
+      ? `<button class="btn-quitar m-0" data-act="quitar" ${sub ? `data-sub="${sub}"` : `data-m="${modulo}"`} title="Quitar acceso"><i class="bi bi-x-lg"></i></button>` : ''}</div>
   </div>`;
 }
 
@@ -521,46 +534,68 @@ function empleadosOrdenados() {
     pos(db.areas, a.areaId) - pos(db.areas, b.areaId) || pos(db.roles, a.rolId) - pos(db.roles, b.rolId) || a.id - b.id);
 }
 
-/* Vista Módulos: un grupo por módulo, dividido en sub-columnas por área */
+/* Vista Módulos: un grupo por SUBSISTEMA (cabecera = subsistema, abajo el sistema en pequeño),
+   en el orden del flujo (orden_flujo de la hoja Modulos) y dividido en sub-columnas por área */
+function subsFlujo() {
+  const posSis = id => { const i = db.modulos.findIndex(m => m.id === id); return i < 0 ? 999 : i; };
+  return db.subs.filter(s => modDe(s.idSistema)).sort((a, b) =>
+    (a.flujo ?? 1e9) - (b.flujo ?? 1e9) || posSis(a.idSistema) - posSis(b.idSistema) || (a.orden ?? 999) - (b.orden ?? 999) || a.id - b.id);
+}
+/** ¿Tiene acceso al subsistema? Permiso al sistema sin lista = todos sus subsistemas */
+const tieneSub = (u, sub) => { const x = permiso(u, sub.idSistema); return !!x && (!subsIds(x).length || subsIds(x).includes(sub.id)); };
+function darSub(u, sub) {
+  const x = permiso(u, sub.idSistema);
+  if (!x) { db.permisos.push({ ...PERM_COMPLETO(u, sub.idSistema), s:String(sub.id) }); return true; }
+  const ids = subsIds(x);
+  if (!ids.length || ids.includes(sub.id)) return false;      // ya tenía acceso
+  x.s = [...ids, sub.id].join(','); return true;
+}
+function sacarSub(u, sub) {
+  const x = permiso(u, sub.idSistema); if (!x) return;
+  const ids = subsIds(x).length ? subsIds(x) : subsDe(sub.idSistema).map(s => s.id);
+  const resto = ids.filter(id => id !== sub.id);
+  if (resto.length) x.s = resto.join(','); else db.permisos = db.permisos.filter(p => p !== x);
+}
 function htmlModulos(lista) {
   const grupos = [];
-  for (const m of db.modulos) {
-    const gente = lista.filter(p => permiso(p.id, m.id) && coincide(p));
-    if (filtro && !gente.length) continue;
-    const subs = [];
-    db.areas.forEach(a => { const g = gente.filter(p => p.areaId === a.id); if (g.length) subs.push({ area:a, gente:g }); });
+  const subs = subsFlujo();
+  subs.forEach((sb, n) => {
+    const m = modDe(sb.idSistema);
+    const gente = lista.filter(p => tieneSub(p.id, sb) && coincide(p));
+    if (filtro && !gente.length && !`${sb.nombre} ${m.nombre}`.toLowerCase().includes(filtro)) return;
+    const cols = [];
+    db.areas.forEach(a => { const g = gente.filter(p => p.areaId === a.id); if (g.length) cols.push({ area:a, gente:g }); });
     const sinArea = gente.filter(p => !areaDe(p.areaId));
-    if (sinArea.length) subs.push({ area:null, gente:sinArea });
-    if (!subs.length) subs.push({ area:undefined, gente:[] });
-
-    const cols = subs.map(s => `
+    if (sinArea.length) cols.push({ area:null, gente:sinArea });
+    if (!cols.length) cols.push({ area:undefined, gente:[] });
+    const html = cols.map(c => `
       <div class="sub-col">
-        <div class="sub-head" style="--a:${s.area?.color || '#90a4ae'}">
-          <span class="text-truncate">${esc(s.area ? s.area.nombre : s.area === null ? 'SIN ÁREA' : 'SIN PERSONAS')}</span>
-          <span class="badge text-bg-light">${s.gente.length}</span>
+        <div class="sub-head" style="--a:${c.area?.color || '#90a4ae'}">
+          <span class="text-truncate">${esc(c.area ? c.area.nombre : c.area === null ? 'SIN ÁREA' : 'SIN PERSONAS')}</span>
+          <span class="badge text-bg-light">${c.gente.length}</span>
         </div>
         <div class="ptable">${encabezado}
-          <div class="pbody" data-col="${m.id}" data-empty="${PUEDE_EDITAR ? 'Arrastra personas aquí para darles acceso' : 'Sin personas'}">${s.gente.map(p => fila(p, { drag:true, modulo:m.id })).join('')}</div>
+          <div class="pbody" data-col="${sb.id}" data-empty="${PUEDE_EDITAR ? 'Arrastra personas aquí para darles acceso' : 'Sin personas'}">${c.gente.map(p => fila(p, { drag:true, sub:sb.id })).join('')}</div>
         </div>
       </div>`).join(divisor());
-
-    grupos.push(`<section class="mod-group" data-key="modulo" data-id="${m.id}">
-      <header class="col-head" style="--c:${m.color}">
-        ${handle('Arrastrar módulo')}
-        <span class="orden" title="Orden de visualización">#${m.orden ?? '–'}</span>
-        <span class="flex-grow-1 text-truncate" title="${esc(m.nombre)}">${m.id} · ${esc(m.nombre)}</span>
-        ${m.folder ? `<span class="folder-tag" title="Folder">${esc(m.folder)}</span>` : ''}
-        <button class="btn btn-sm btn-link btn-spd ${m.spd ? 'tiene' : ''}" data-act="spd" title="${m.spd ? 'SPD: ' + esc(m.spd) : 'SPD (opcional)'}">
-          <i class="bi ${m.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
+    grupos.push(`<section class="mod-group" data-key="sub" data-id="${sb.id}" data-sis="${m.id}">
+      <header class="col-head col-head-sub" style="--c:${m.color}">
+        ${handle('Arrastrar para ordenar el flujo')}
+        <span class="orden" title="Paso en el flujo">#${n + 1}</span>
+        <span class="flex-grow-1 min-w-0">
+          <span class="d-block text-truncate sub-titulo" title="${esc(sb.nombre)}">${esc(sb.nombre)}</span>
+          <button type="button" class="sis-mini" data-act="edit-sis" title="${PUEDE_EDITAR ? 'Editar sistema' : 'Sistema'} ${esc(m.nombre)}" ${PUEDE_EDITAR ? '' : 'disabled'}>${m.id} · ${esc(m.nombre)}</button>
+        </span>
+        ${sb.archivo ? `<span class="folder-tag" title="Archivo del subsistema">${esc(sb.archivo)}</span>` : ''}
         <span class="badge bg-light text-dark">${gente.length}</span>
         ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
       </header>
-      ${barraSubs(m)}
-      <div class="mod-cols">${cols}</div>
+      <div class="mod-cols">${html}</div>
     </section>`);
-  }
-  return grupos.join(divisor()) + btnAgregar('módulo');
+  });
+  if (!subs.length) grupos.push(`<div class="p-4 text-muted">No hay subsistemas. ${PUEDE_EDITAR ? 'Agrégalos con «+ Módulo» o en Sistemas y Módulos.' : 'Se agregan en Sistemas y Módulos.'}</div>`);
+  return grupos.join(divisor()) + btnAgregar('módulo (subsistema)');
 }
 
 /* Subsistemas del módulo (hoja Modulos, compartida con Sistemas y Módulos) */
@@ -568,7 +603,7 @@ function barraSubs(m) {
   const subs = subsDe(m.id), abierto = subsAbiertos.has(m.id);
   return `<div class="subs-bar">
       <button class="btn btn-sm btn-link btn-mods p-0 ${abierto ? 'abierto' : ''}" data-act="toggle-subs" aria-expanded="${abierto}">
-        <i class="bi bi-chevron-right"></i> ${subs.length} subsistema${subs.length === 1 ? '' : 's'}</button>
+        <i class="bi bi-chevron-right"></i> ${subs.length} subsistema${subs.length === 1 ? '' : 's'}${PUEDE_EDITAR ? ' · editar' : ''}</button>
       <a class="ms-auto small" href="areas.html#sistema-${m.id}" title="Abrir en Sistemas y Módulos"><i class="bi bi-box-arrow-up-right"></i> Sistemas</a>
     </div>
     ${abierto ? `<div class="subs-list">
@@ -617,7 +652,7 @@ function render() {
   $('#btnCol').innerHTML = `<i class="bi bi-plus-lg"></i> ${v.nuevo}`;
   $('#hint').textContent = PUEDE_EDITAR ? v.hint : HINT_LECTURA;
   const pend = db.empleados.filter(p => !nombreCompleto(p)).length;
-  $('#resumen').textContent = `${db.areas.length} áreas · ${db.modulos.length} módulos · ${db.roles.length} roles · ${db.empleados.length} empleados (${pend} sin datos) · ${db.permisos.length} permisos`;
+  $('#resumen').textContent = `${db.areas.length} áreas · ${db.modulos.length} sistemas · ${db.subs.length} módulos · ${db.roles.length} roles · ${db.empleados.length} empleados (${pend} sin datos) · ${db.permisos.length} permisos`;
 
   const board = $('#board');
   board.classList.toggle('es-matriz', vista === 'matriz');
@@ -682,6 +717,16 @@ function initSortable() {
     animation:150, handle:'.col-handle', draggable:selector,
     onEnd() {
       const ids = [...board.querySelectorAll(selector)].map(el => +el.dataset.id);
+      if (vista === 'modulos') {
+        // Orden del flujo de subsistemas: se guarda en Modulos.orden_flujo (compartido)
+        const lista = subsFlujo(), visibles = new Set(ids);
+        const orden = [...ids.map(id => lista.find(x => x.id === id)), ...lista.filter(x => !visibles.has(x.id))].filter(Boolean);
+        const cambiados = [];
+        orden.forEach((x, k) => { if (x.flujo !== k + 1) { x.flujo = k + 1; cambiados.push(x); } });
+        render();
+        if (cambiados.length) compartir(async () => { for (const x of cambiados) await Compartido.guardar('modulos', { id:x.id, orden_flujo:x.flujo }); }, 'Orden del flujo guardado');
+        return;
+      }
       const col = VISTAS[vista].coleccion();
       const antes = new Map(col.map(x => [x.id, x.orden]));
       col.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
@@ -698,16 +743,15 @@ function initSortable() {
   if (vista === 'modulos') {
     // Se COPIA: arrastrar da acceso al módulo destino sin quitar el de origen
     board.querySelectorAll('.pbody').forEach(el => {
-      const modId = +el.dataset.col;
+      const sb = db.subs.find(x => x.id === +el.dataset.col);
       Sortable.create(el, {
         group:{ name:'mod', pull:'clone', put:true }, sort:false, animation:150,
         filter:'.btn-quitar', preventOnFilter:false,
         onAdd(e) {
           const u = +e.item.dataset.pid; e.item.remove();
-          if (permiso(u, modId)) { toast('Ya tenía acceso a ese módulo'); render(); return; }
-          db.permisos.push({ u, m:modId, c:1, i:1, a:1, e:1 });
+          if (!sb || !darSub(u, sb)) { toast('Ya tenía acceso a ese módulo'); render(); return; }
           cambio(); render();
-          toast(`${nombreCompleto(empDe(u)) || 'Usuario ' + u} → ${modDe(modId).nombre}`);
+          toast(`${nombreCompleto(empDe(u)) || 'Usuario ' + u} → ${sb.nombre}`);
         }
       });
     });
@@ -773,7 +817,7 @@ function abrirModal(titulo, cuerpo, acc, { grande = false } = {}) {
   modalEl.querySelector('.modal-title').textContent = titulo;
   const body = modalEl.querySelector('.modal-body');
   body.innerHTML = cuerpo;
-  body.onchange = body.oninput = null; // cada modal registra los suyos
+  body.onchange = body.oninput = body.onclick = null; // cada modal registra los suyos
   $('#mError').textContent = '';
   $('#mEliminar').classList.toggle('d-none', !acc.eliminar);
   modal.show();
@@ -795,8 +839,11 @@ function editarEmpleado(p) {
   const base = p || emp(nextId(db.empleados), '', '', '', '', null, null);
   const permisosTabla = db.modulos.map(m => {
     const x = permiso(base.id, m.id);
+    const subs = subsDe(m.id), sel = subsIds(x);
     return `<tr><td class="small">${m.id} · ${esc(m.nombre)}</td>${FLAGS.map(([k]) =>
-      `<td class="text-center"><input class="form-check-input" type="checkbox" name="p_${m.id}_${k}" ${x && x[k] > 0 ? 'checked' : ''}></td>`).join('')}</tr>`;
+      `<td class="text-center"><input class="form-check-input" type="checkbox" name="p_${m.id}_${k}" ${x && x[k] > 0 ? 'checked' : ''}></td>`).join('')}</tr>
+      ${subs.length ? `<tr class="table-light"><td colspan="5"><div class="sub-pick"><span class="text-muted">Subsistemas:</span>${subs.map(s =>
+        `<label><input class="form-check-input mt-0" type="checkbox" name="s_${m.id}" value="${s.id}" ${sel.includes(s.id) ? 'checked' : ''}>${esc(s.nombre)}</label>`).join('')}</div></td></tr>` : ''}`;
   }).join('');
 
   abrirModal(nuevo ? 'Nuevo empleado' : 'Editar empleado', `
@@ -814,6 +861,7 @@ function editarEmpleado(p) {
           <thead class="table-light"><tr><th>Módulo</th><th class="text-center">Consultar</th><th class="text-center">Insertar</th><th class="text-center">Actualizar</th><th class="text-center">Eliminar</th></tr></thead>
           <tbody>${permisosTabla}</tbody>
         </table>
+        <div class="small text-muted mt-1">Sin subsistemas marcados = acceso a todo el sistema. Marca uno o varios para limitarlo a esos subsistemas.</div>
       </div>
       <button hidden></button>
     </form>`, {
@@ -828,6 +876,8 @@ function editarEmpleado(p) {
         const ant = permiso(base.id, m.id);
         const x = { u:id, m:m.id };
         FLAGS.forEach(([k]) => { x[k] = f.get(`p_${m.id}_${k}`) ? (ant && ant[k] > 0 ? ant[k] : 1) : 0; });
+        x.s = f.getAll(`s_${m.id}`).join(',');
+        if (x.s && !FLAGS.some(([k]) => x[k] > 0)) x.c = 1;   // marcar un subsistema da al menos "consultar"
         if (FLAGS.some(([k]) => x[k] > 0)) nuevos.push(x);
       }
       const datos = { id, usuario:up('usuario'), nombre:up('nombre'), paterno:up('paterno'), materno:up('materno'),
@@ -859,10 +909,25 @@ function quitarDeModulo(u, modId) {
   toast(`${nombreCompleto(empDe(u)) || 'Usuario ' + u} ya no tiene acceso a ${modDe(modId).nombre}`, { deshacer:() => restaurarPermisos(antes) });
 }
 
-/* Vista Módulos: agregar o quitar personas de un módulo */
-function asignarPersonas(modId) {
+function quitarDeSub(u, subId) {
   if (!PUEDE_EDITAR) return;
-  const m = modDe(modId);
+  const sb = db.subs.find(x => x.id === subId); if (!sb) return;
+  const antes = structuredClone(db.permisos);
+  sacarSub(u, sb); cambio(); render();
+  toast(`${nombreCompleto(empDe(u)) || 'Usuario ' + u} ya no tiene acceso a ${sb.nombre}`, { deshacer:() => restaurarPermisos(antes) });
+}
+/* Vista Módulos (subsistemas): agregar o quitar personas */
+function asignarPersonasSub(subId) {
+  if (!PUEDE_EDITAR) return;
+  const sb = db.subs.find(x => x.id === subId); if (!sb) return;
+  asignarPersonas(sb.idSistema, sb);
+}
+
+/* Vista Módulos: agregar o quitar personas de un módulo */
+function asignarPersonas(modId, sb = null) {
+  if (!PUEDE_EDITAR) return;
+  const m = sb ? { nombre:sb.nombre } : modDe(modId);
+  const tiene = p => sb ? tieneSub(p.id, sb) : !!permiso(p.id, modId);
   const lista = empleadosOrdenados();
   const grupos = [...db.areas.map(a => ({ a, gente:lista.filter(p => p.areaId === a.id) })),
                   { a:null, gente:lista.filter(p => !areaDe(p.areaId)) }].filter(g => g.gente.length);
@@ -875,7 +940,7 @@ function asignarPersonas(modId) {
       ${g.gente.map(p => `
         <label class="item-sel d-flex align-items-center gap-2 small py-1 px-3"
                data-texto="${esc(`${p.id} ${p.usuario} ${nombreCompleto(p)} ${rolDe(p.rolId)?.nombre || ''}`.toLowerCase())}">
-          <input type="checkbox" class="form-check-input m-0" name="u" value="${p.id}" ${permiso(p.id, modId) ? 'checked' : ''}>
+          <input type="checkbox" class="form-check-input m-0" name="u" value="${p.id}" ${tiene(p) ? 'checked' : ''}>
           <span class="text-muted" style="width:42px">${p.id}</span>
           <span class="flex-grow-1 text-truncate ${nombreCompleto(p) ? '' : 'fst-italic text-muted'}">${esc(nombreCompleto(p) || '(SIN DATOS DE EMPLEADO)')}</span>
           <span class="text-muted text-truncate" style="max-width:40%">${esc(rolDe(p.rolId)?.nombre || 'SIN ROL')}</span>
@@ -892,10 +957,11 @@ function asignarPersonas(modId) {
     guardar() {
       const sel = new Set([...modalEl.querySelectorAll('[name="u"]:checked')].map(c => +c.value));
       const antes = structuredClone(db.permisos);
-      const agregar = db.empleados.filter(p => sel.has(p.id) && !permiso(p.id, modId));
-      const quitar = new Set(db.empleados.filter(p => !sel.has(p.id) && permiso(p.id, modId)).map(p => p.id));
+      const agregar = db.empleados.filter(p => sel.has(p.id) && !tiene(p));
+      const quitar = new Set(db.empleados.filter(p => !sel.has(p.id) && tiene(p)).map(p => p.id));
       if (!agregar.length && !quitar.size) return;
-      db.permisos = db.permisos.filter(x => !(x.m === modId && quitar.has(x.u))).concat(agregar.map(p => PERM_COMPLETO(p.id, modId)));
+      if (sb) { agregar.forEach(p => darSub(p.id, sb)); quitar.forEach(u => sacarSub(u, sb)); }
+      else db.permisos = db.permisos.filter(x => !(x.m === modId && quitar.has(x.u))).concat(agregar.map(p => PERM_COMPLETO(p.id, modId)));
       cambio(); render();
       toast(`${m.nombre}: +${agregar.length} / −${quitar.size} personas`, { deshacer:() => restaurarPermisos(antes) });
     }
@@ -976,7 +1042,7 @@ function asignarModulosRol(rolId) {
 function editarColumna(key, id) {
   if (!PUEDE_EDITAR) return;
   const col = key === 'area' ? db.areas : key === 'modulo' ? db.modulos : db.roles;
-  const etiqueta = { area:'área', modulo:'módulo', rol:'rol' }[key];
+  const etiqueta = { area:'área', modulo:'sistema', rol:'rol' }[key];
   const nuevo = id == null;
   const it = nuevo
     ? { id:nextId(col), nombre:'', orden:siguienteOrden(col), color:PALETA[col.length % PALETA.length], areaId:null, folder:'', spd:'' }
@@ -993,8 +1059,9 @@ function editarColumna(key, id) {
         <div class="col-8"><label class="form-label small">Folder</label><input name="folder" class="form-control text-uppercase" value="${esc(it.folder || '')}"></div>
         <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control" value="${esc(it.spd || '')}"></div>
         ${nuevo ? '' : `<div class="col-12 mt-2"><div class="fw-semibold small mb-1">Subsistemas (${subs.length})</div>
-          <div class="d-flex flex-wrap gap-1">${subs.map(s => `<span class="chip" style="--c:${it.color}" title="${esc(s.archivo)}">${s.id} · ${esc(s.nombre)}</span>`).join('') || '<span class="small text-muted">Sin subsistemas</span>'}</div>
-          <div class="small text-muted mt-1">Se editan desde la vista Módulos (▸ subsistemas) o en <a href="areas.html#sistema-${it.id}">Sistemas y Módulos</a>.</div></div>`}
+          <div class="d-flex flex-wrap gap-1 align-items-center">${subs.map(s => `<button type="button" class="chip chip-sub" style="--c:${it.color}" data-sub-edit="${s.id}" title="Editar subsistema${s.archivo ? ' · ' + esc(s.archivo) : ''}">${s.id} · ${esc(s.nombre)} <i class="bi bi-pencil"></i></button>`).join('') || '<span class="small text-muted">Sin subsistemas</span>'}
+            <button type="button" class="btn btn-sm btn-link p-0 ms-1" data-sub-add><i class="bi bi-plus-circle"></i> Subsistema</button></div>
+          <div class="small text-muted mt-1">Clic en un subsistema para editarlo, moverlo a otro módulo o eliminarlo.</div></div>`}
         <div class="col-12 small text-muted">Este módulo es un <b>sistema</b>: los cambios se ven también en Sistemas y Módulos.</div>` : ''}
       ${key === 'rol' ? `<div class="col-8"><label class="form-label small">Área del rol</label><select name="areaId" class="form-select">${opciones(db.areas, it.areaId, 'Sin área')}</select></div>` : ''}
       ${esModulo ? '' : '<div class="col-12 small text-muted">Cambiar el orden no modifica ningún id ni relación.</div>'}
@@ -1039,6 +1106,10 @@ function editarColumna(key, id) {
       else toast(`${etiqueta} eliminado`);
     }
   });
+  if (esModulo && !nuevo) modalEl.querySelector('.modal-body').onclick = e => {
+    const b = e.target.closest('[data-sub-edit],[data-sub-add]'); if (!b) return;
+    editarSub(b.dataset.subEdit ? +b.dataset.subEdit : null, it.id);
+  };
 }
 
 /* ---------------- Subsistemas (hoja Modulos compartida) ---------------- */
@@ -1051,8 +1122,8 @@ function editarSub(subId, sistemaId) {
     <form id="f" class="row g-2">
       <div class="col-12"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(s.nombre)}" placeholder="Ej. ALTA DE PROMOCIONES"></div>
       <div class="col-8"><label class="form-label small">Archivo del subsistema</label><input name="archivo" class="form-control font-monospace" value="${esc(s.archivo)}" placeholder="Ej. alta_promociones.html"></div>
-      <div class="col-4"><label class="form-label small">Orden</label><input name="orden" type="number" min="1" class="form-control" value="${s.orden ?? ''}"></div>
-      <div class="col-12"><label class="form-label small">Módulo (sistema)</label><select name="sistema" class="form-select">${opciones(db.modulos, s.idSistema)}</select></div>
+      <div class="col-4"><label class="form-label small">Orden en su sistema</label><input name="orden" type="number" min="1" class="form-control" value="${s.orden ?? ''}"></div>
+      <div class="col-12"><label class="form-label small">Sistema</label><select name="sistema" class="form-select">${opciones(db.modulos, s.idSistema)}</select></div>
       <div class="col-12 small text-muted">${nuevo ? 'El ID se asigna automáticamente.' : `Tiene ${nCards} card(s) en Sistemas y Módulos; si cambias el módulo, se mueven con él.`}
         Los cambios se ven también en Sistemas y Módulos.</div>
       <button hidden></button>
@@ -1157,7 +1228,8 @@ function aHojas() {
       id_area:p.areaId ?? '', area:areaDe(p.areaId)?.nombre || '' })),
     PERMISOS: db.permisos.map(x => ({ id_usuario:x.u, usuario:empDe(x.u)?.usuario || '', nombre_completo:nombreCompleto(empDe(x.u) || {}),
       id_modulo:x.m, modulo:modDe(x.m)?.nombre || '',
-      consultar:x.c, insertar:x.i, actualizar:x.a, eliminar:x.e }))
+      consultar:x.c, insertar:x.i, actualizar:x.a, eliminar:x.e,
+      subsistemas:x.s || '', subsistemas_nombre:subsTexto(x) }))
   };
 }
 
@@ -1173,7 +1245,8 @@ function deHojas(h) {
     ...mapCatalogo(h.MODULOS || [], h.SUBSISTEMAS || [], h.CARDS_POR_SUBSISTEMA || {}),
     empleados: (h.EMPLEADOS || []).map(r => emp(num(r.id), s(r.usuario).toUpperCase(), s(r.nombre).toUpperCase(), s(r.paterno).toUpperCase(),
                                                 s(r.materno).toUpperCase(), num(r.id_rol), num(r.id_area))),
-    permisos: (h.PERMISOS || []).map(r => ({ u:num(r.id_usuario), m:num(r.id_modulo), c:flag(r.consultar), i:flag(r.insertar), a:flag(r.actualizar), e:flag(r.eliminar) }))
+    permisos: (h.PERMISOS || []).map(r => ({ u:num(r.id_usuario), m:num(r.id_modulo), c:flag(r.consultar), i:flag(r.insertar), a:flag(r.actualizar), e:flag(r.eliminar),
+                                             s:normSubs(r.subsistemas) }))
   };
 }
 
@@ -1222,7 +1295,7 @@ $('#chkCompacto').checked = leerPref('compacto', '0') === '1';
 $('#chkCompacto').addEventListener('change', e => { guardarPref('compacto', e.target.checked ? '1' : '0'); render(); });
 $('#chkPend').checked = leerPref('ocultarPend', '1') === '1';
 $('#chkPend').addEventListener('change', e => { guardarPref('ocultarPend', e.target.checked ? '1' : '0'); render(); });
-$('#btnCol').onclick  = () => editarColumna(VISTAS[vista].key, null);
+$('#btnCol').onclick  = () => vista === 'modulos' ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
 $('#btnPart').onclick = () => editarEmpleado(null);
 $('#sync').onclick    = () => { if (MODO === 'drive') driveListo ? guardarDrive() : cargarDrive(); };
 
@@ -1231,8 +1304,10 @@ $('#board').addEventListener('click', e => {
   if (act) {
     const sec = act.closest('[data-key]');
     if (act.dataset.act === 'spd')      return abrirSpd(act, +sec.dataset.id);
-    if (act.dataset.act === 'quitar')   return quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
-    if (act.dataset.act === 'personas') return asignarPersonas(+sec.dataset.id);
+    if (act.dataset.act === 'quitar')   return act.dataset.sub ? quitarDeSub(+act.closest('[data-pid]').dataset.pid, +act.dataset.sub)
+                                                               : quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
+    if (act.dataset.act === 'personas') return sec.dataset.key === 'sub' ? asignarPersonasSub(+sec.dataset.id) : asignarPersonas(+sec.dataset.id);
+    if (act.dataset.act === 'edit-sis') return editarColumna('modulo', +sec.dataset.sis);
     if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
     if (act.dataset.act === 'toggle-subs') { const id = +sec.dataset.id; subsAbiertos.has(id) ? subsAbiertos.delete(id) : subsAbiertos.add(id); return render(); }
     if (act.dataset.act === 'edit-sub') return editarSub(+act.dataset.sub, +sec.dataset.id);
@@ -1242,8 +1317,8 @@ $('#board').addEventListener('click', e => {
       rolesAbiertos.has(id) ? rolesAbiertos.delete(id) : rolesAbiertos.add(id);
       return render();
     }
-    if (act.dataset.act === 'add-col')  return editarColumna(VISTAS[vista].key, null);
-    if (act.dataset.act === 'edit-col') return editarColumna(sec.dataset.key, +sec.dataset.id);
+    if (act.dataset.act === 'add-col')  return vista === 'modulos' ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
+    if (act.dataset.act === 'edit-col') return sec.dataset.key === 'sub' ? editarSub(+sec.dataset.id, +sec.dataset.sis) : editarColumna(sec.dataset.key, +sec.dataset.id);
   }
   const row = e.target.closest('[data-pid]');
   if (row && !e.target.closest('input')) editarEmpleado(empDe(+row.dataset.pid));
