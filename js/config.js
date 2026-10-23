@@ -10,7 +10,7 @@ window.ENV = {
 
   // Un solo Apps Script (SistemasTFCA.gs + TableroTFCA.gs) y una sola hoja para las dos páginas.
   // Mientras diga "PEGA_AQUI..." ambas páginas funcionan en modo demo (datos en este navegador).
-  SISTEMAS_API_URL: 'PEGA_AQUI_EL_EXEC_DE_SISTEMAS',
+  SISTEMAS_API_URL: 'https://script.google.com/macros/s/AKfycbybuT-30foyKlw33guip4oQkueA4tzWC9PYIxi0jTIPOIy9S9IAS0DZeHYCIerzzcuQ/exec',
   SISTEMAS_API_KEY: 'tfca-sistemas-2026-cambia-esta-clave',   // = CFG.API_KEY de SistemasTFCA.gs
 
   SESSION_DAYS: 3,        // días que dura la sesión en este navegador
