@@ -139,6 +139,8 @@
   .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
   .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
   .chip-sub:disabled { cursor:default; }
+  .btn-ocultar { opacity:.7; } .btn-ocultar:hover { opacity:1; }
+  .oculto-col { opacity:.8; } .oculto-col small { font-weight:400; }
   .col-head-sub { align-items:flex-start; }
   .col-head-sub .handle, .col-head-sub .col-handle, .col-head-sub .orden { margin-top:3px; }
   .min-w-0 { min-width:0; }
@@ -170,6 +172,7 @@
   </div>
 
   <input id="buscar" class="form-control form-control-sm" style="max-width:220px" placeholder="Buscar ID, usuario, nombre…">
+  <button id="btnVisibles" class="btn btn-sm btn-outline-secondary d-none" title="Elegir qué módulos se muestran"><i class="bi bi-eye"></i> <span>Módulos visibles</span></button>
   <div class="form-check form-switch m-0">
     <input class="form-check-input" type="checkbox" id="chkCompacto">
     <label class="form-check-label small" for="chkCompacto">Compacto</label>
@@ -391,7 +394,8 @@ function mapCatalogo(sistemas = [], modulos = [], cards = {}) {
     modulos: sistemas.filter(x => String(x.estatus ?? 1) !== '0').map((x, i) => ({ id:num(x.id), nombre:String(x.nombre || ''), folder:String(x.folder || ''),
       orden:num(x.orden), spd:String(x.spd || ''), color:color(x.color, i) })),
     subs: modulos.filter(x => String(x.estatus ?? 1) !== '0').map(x => ({ id:num(x.id), idSistema:num(x.id_sistema), nombre:String(x.nombre || ''),
-      archivo:String(x.archivo_subsistema || ''), orden:num(x.orden), flujo:num(x.orden_flujo) })),
+      archivo:String(x.archivo_subsistema || ''), orden:num(x.orden), flujo:num(x.orden_flujo),
+      oculto:/^(1|true|si|sí)$/i.test(String(x.oculto_accesos ?? '').trim()) })),
     cardsPorSub: porSub
   };
 }
@@ -534,6 +538,66 @@ function empleadosOrdenados() {
     pos(db.areas, a.areaId) - pos(db.areas, b.areaId) || pos(db.roles, a.rolId) - pos(db.roles, b.rolId) || a.id - b.id);
 }
 
+/* Módulos ocultos en la vista Módulos: columna oculto_accesos de la hoja Modulos (igual para todos).
+   Ocultar no borra el módulo ni sus accesos. Solo con sesión. */
+const Ocultos = {
+  get() { return new Set(db.subs.filter(x => x.oculto).map(x => x.id)); },
+  has(id) { return !!db.subs.find(x => x.id === id)?.oculto; },
+  /** ids: conjunto final de ocultos; guarda solo los que cambian */
+  set(ids, msg) {
+    if (!PUEDE_EDITAR) return;
+    const cambiados = db.subs.filter(x => x.oculto !== ids.has(x.id));
+    cambiados.forEach(x => { x.oculto = ids.has(x.id); });
+    render();
+    if (cambiados.length) compartir(async () => { for (const x of cambiados) await Compartido.guardar('modulos', { id:x.id, oculto_accesos:x.oculto ? 1 : '' }); }, msg);
+  },
+  toggle(id, ocultar, msg) { const s = this.get(); ocultar ? s.add(id) : s.delete(id); this.set(s, msg); }
+};
+function elegirVisibles() {
+  const ocultos = Ocultos.get(), subs = subsFlujo();
+  const grupos = db.modulos.map(m => ({ m, subs:subs.filter(x => x.idSistema === m.id) })).filter(g => g.subs.length);
+  abrirModal('Módulos visibles', `
+    <div class="d-flex gap-2 mb-2 flex-wrap">
+      <input class="form-control form-control-sm" id="vBuscar" placeholder="Buscar módulo o sistema…" style="max-width:260px" autocomplete="off">
+      <button type="button" class="btn btn-sm btn-outline-success" data-vis-todos="1"><i class="bi bi-eye"></i> Mostrar todos</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-vis-todos="0"><i class="bi bi-eye-slash"></i> Ocultar todos</button>
+    </div>
+    <div class="lista-sel border rounded">${grupos.map(g => `
+      <div data-grupo>
+        <label class="sel-head d-flex align-items-center gap-2 fw-semibold small py-1 px-2" style="--a:${g.m.color}">
+          <input type="checkbox" class="form-check-input m-0" data-vis-sis> ${g.m.id} · ${esc(g.m.nombre)}
+          <span class="badge text-bg-light ms-auto">${g.subs.length}</span></label>
+        ${g.subs.map(x => `<label class="item-sel d-flex align-items-center gap-2 small py-1 px-3" data-texto="${esc((x.nombre + ' ' + g.m.nombre).toLowerCase())}">
+          <input type="checkbox" class="form-check-input m-0" name="vis" value="${x.id}" ${ocultos.has(x.id) ? '' : 'checked'}>
+          <span class="text-muted" style="width:46px">#${subs.indexOf(x) + 1}</span>
+          <span class="flex-grow-1 text-truncate">${esc(x.nombre)}</span></label>`).join('')}
+      </div>`).join('') || '<div class="p-3 small text-muted">No hay módulos.</div>'}</div>
+    <div class="small text-muted mt-2">Marcado = se muestra. Se guarda en la hoja (columna <code>oculto_accesos</code> de Modulos) y aplica para todos; no borra módulos ni accesos.</div>`, {
+    guardar() {
+      const vis = new Set([...modalEl.querySelectorAll('[name="vis"]:checked')].map(c => +c.value));
+      const nuevos = new Set(db.subs.map(x => x.id).filter(id => !vis.has(id)));
+      Ocultos.set(nuevos, nuevos.size ? `${nuevos.size} módulo(s) oculto(s) para todos` : 'Todos los módulos visibles');
+    }
+  }, { grande:true });
+  const body = modalEl.querySelector('.modal-body');
+  const sync = () => body.querySelectorAll('[data-grupo]').forEach(g => {
+    const cs = [...g.querySelectorAll('[name="vis"]')], on = cs.filter(c => c.checked).length, t = g.querySelector('[data-vis-sis]');
+    t.checked = on === cs.length; t.indeterminate = on > 0 && on < cs.length;
+  });
+  sync();
+  body.onchange = e => {
+    if (e.target.matches('[data-vis-sis]')) e.target.closest('[data-grupo]').querySelectorAll('[name="vis"]').forEach(c => { c.checked = e.target.checked; });
+    sync();
+  };
+  body.onclick = e => { const b = e.target.closest('[data-vis-todos]'); if (!b) return; body.querySelectorAll('[name="vis"]').forEach(c => { c.checked = b.dataset.visTodos === '1'; }); sync(); };
+  body.oninput = e => {
+    if (e.target.id !== 'vBuscar') return;
+    const q = e.target.value.trim().toLowerCase();
+    body.querySelectorAll('[data-texto]').forEach(l => { l.classList.toggle('d-none', !!q && !l.dataset.texto.includes(q)); });
+    body.querySelectorAll('[data-grupo]').forEach(g => g.classList.toggle('d-none', !!q && !g.querySelector('[data-texto]:not(.d-none)')));
+  };
+}
+
 /* Vista Módulos: un grupo por SUBSISTEMA (cabecera = subsistema, abajo el sistema en pequeño),
    en el orden del flujo (orden_flujo de la hoja Modulos) y dividido en sub-columnas por área */
 function subsFlujo() {
@@ -558,8 +622,9 @@ function sacarSub(u, sub) {
 }
 function htmlModulos(lista) {
   const grupos = [];
-  const subs = subsFlujo();
+  const subs = subsFlujo(), ocultos = Ocultos.get();
   subs.forEach((sb, n) => {
+    if (ocultos.has(sb.id)) return;
     const m = modDe(sb.idSistema);
     const gente = lista.filter(p => tieneSub(p.id, sb) && coincide(p));
     if (filtro && !gente.length && !`${sb.nombre} ${m.nombre}`.toLowerCase().includes(filtro)) return;
@@ -590,10 +655,17 @@ function htmlModulos(lista) {
         <span class="badge bg-light text-dark">${gente.length}</span>
         ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
+        ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0 ms-1 btn-ocultar" data-act="ocultar" title="Ocultar este módulo (para todos)"><i class="bi bi-eye-slash"></i></button>` : ''}
       </header>
       <div class="mod-cols">${html}</div>
     </section>`);
   });
+  if (ocultos.size && subs.some(x => ocultos.has(x.id))) {
+    const n = subs.filter(x => ocultos.has(x.id)).length;
+    grupos.push(PUEDE_EDITAR
+      ? `<button class="add-col oculto-col" data-act="ver-ocultos"><i class="bi bi-eye fs-3"></i><span>${n} módulo${n === 1 ? '' : 's'} oculto${n === 1 ? '' : 's'}<br><small>Elegir cuáles mostrar</small></span></button>`
+      : `<div class="add-col oculto-col"><i class="bi bi-eye-slash fs-3"></i><span>${n} módulo${n === 1 ? '' : 's'} oculto${n === 1 ? '' : 's'}<br><small>Inicia sesión para mostrarlos</small></span></div>`);
+  }
   if (!subs.length) grupos.push(`<div class="p-4 text-muted">No hay subsistemas. ${PUEDE_EDITAR ? 'Agrégalos con «+ Módulo» o en Sistemas y Módulos.' : 'Se agregan en Sistemas y Módulos.'}</div>`);
   return grupos.join(divisor()) + btnAgregar('módulo (subsistema)');
 }
@@ -650,6 +722,10 @@ function render() {
   document.querySelectorAll('.solo-local').forEach(el => el.classList.toggle('d-none', MODO !== 'local'));
   document.querySelectorAll('#vistas [data-vista]').forEach(b => b.classList.toggle('active', b.dataset.vista === vista));
   $('#btnCol').innerHTML = `<i class="bi bi-plus-lg"></i> ${v.nuevo}`;
+  { const n = db.subs.filter(x => Ocultos.has(x.id)).length, b = $('#btnVisibles');
+    b.classList.toggle('d-none', vista !== 'modulos' || !PUEDE_EDITAR);
+    b.classList.toggle('btn-warning', n > 0); b.classList.toggle('btn-outline-secondary', !n);
+    b.querySelector('span').textContent = n ? `Módulos visibles (${n} ocultos)` : 'Módulos visibles'; }
   $('#hint').textContent = PUEDE_EDITAR ? v.hint : HINT_LECTURA;
   const pend = db.empleados.filter(p => !nombreCompleto(p)).length;
   $('#resumen').textContent = `${db.areas.length} áreas · ${db.modulos.length} sistemas · ${db.subs.length} módulos · ${db.roles.length} roles · ${db.empleados.length} empleados (${pend} sin datos) · ${db.permisos.length} permisos`;
@@ -719,8 +795,9 @@ function initSortable() {
       const ids = [...board.querySelectorAll(selector)].map(el => +el.dataset.id);
       if (vista === 'modulos') {
         // Orden del flujo de subsistemas: se guarda en Modulos.orden_flujo (compartido)
-        const lista = subsFlujo(), visibles = new Set(ids);
-        const orden = [...ids.map(id => lista.find(x => x.id === id)), ...lista.filter(x => !visibles.has(x.id))].filter(Boolean);
+        // Los ocultos (o filtrados) conservan su lugar; solo se reacomodan los visibles
+        const lista = subsFlujo(), visibles = new Set(ids), nuevos = ids.map(id => lista.find(x => x.id === id)).filter(Boolean);
+        let k = 0; const orden = lista.map(x => visibles.has(x.id) ? nuevos[k++] : x);
         const cambiados = [];
         orden.forEach((x, k) => { if (x.flujo !== k + 1) { x.flujo = k + 1; cambiados.push(x); } });
         render();
@@ -1291,6 +1368,7 @@ $('#vistas').addEventListener('click', e => {
   vista = b.dataset.vista; guardarPref('vista', vista); render();
 });
 $('#buscar').addEventListener('input', e => { filtro = e.target.value.trim().toLowerCase(); render(); });
+$('#btnVisibles').onclick = () => elegirVisibles();
 $('#chkCompacto').checked = leerPref('compacto', '0') === '1';
 $('#chkCompacto').addEventListener('change', e => { guardarPref('compacto', e.target.checked ? '1' : '0'); render(); });
 $('#chkPend').checked = leerPref('ocultarPend', '1') === '1';
@@ -1308,6 +1386,8 @@ $('#board').addEventListener('click', e => {
                                                                : quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
     if (act.dataset.act === 'personas') return sec.dataset.key === 'sub' ? asignarPersonasSub(+sec.dataset.id) : asignarPersonas(+sec.dataset.id);
     if (act.dataset.act === 'edit-sis') return editarColumna('modulo', +sec.dataset.sis);
+    if (act.dataset.act === 'ocultar') { const sb = db.subs.find(x => x.id === +sec.dataset.id); return Ocultos.toggle(sb.id, true, `«${sb.nombre}» oculto para todos (Módulos visibles para mostrarlo)`); }
+    if (act.dataset.act === 'ver-ocultos') return elegirVisibles();
     if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
     if (act.dataset.act === 'toggle-subs') { const id = +sec.dataset.id; subsAbiertos.has(id) ? subsAbiertos.delete(id) : subsAbiertos.add(id); return render(); }
     if (act.dataset.act === 'edit-sub') return editarSub(+act.dataset.sub, +sec.dataset.id);
