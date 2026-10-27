@@ -139,6 +139,59 @@
   .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
   .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
   .chip-sub:disabled { cursor:default; }
+  /* ---------- Vista Flujo ---------- */
+  .board.es-flujo { display:block; }
+  .fl-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .fl-diagrama { display:flex; align-items:center; gap:0; padding:6px 4px 20px; }
+  .fl-diagrama.fl-h { flex-direction:row; overflow-x:auto; align-items:flex-start; }
+  .fl-h > .fl-term, .fl-h > .fl-arrow { align-self:flex-start; margin-top:64px; }
+  .fl-diagrama.fl-v { flex-direction:column; }
+  .fl-term { flex:none; background:#37474f; color:#fff; font-weight:700; font-size:.78rem; letter-spacing:.12em; padding:10px 22px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+  .fl-node { flex:0 0 300px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); border-top:5px solid var(--c); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); min-width:0; }
+  .fl-v .fl-node { flex:none; width:min(520px, 100%); }
+  .fl-head { padding:10px 12px 8px; border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--c) 9%, #fff); border-radius:6px 6px 0 0; }
+  .fl-paso { display:flex; justify-content:space-between; font-size:.68rem; font-weight:700; letter-spacing:.08em; color:var(--c); }
+  .fl-paso span { color:#78909c; font-weight:600; letter-spacing:0; }
+  .fl-head h3 { font-size:1rem; font-weight:700; margin:3px 0 1px; line-height:1.25; color:#1f2a33; }
+  .fl-sis { font-size:.72rem; color:#5f6b76; text-transform:uppercase; letter-spacing:.03em; }
+  .fl-meta { padding:8px 12px; display:flex; flex-direction:column; gap:5px; border-bottom:1px solid var(--line); }
+  .fl-spd { display:flex; align-items:center; gap:6px; width:100%; text-align:left; border:1px dashed color-mix(in srgb, var(--c) 45%, #fff); background:#fafbfc; border-radius:6px; padding:4px 8px; font-size:.78rem; color:#37474f; }
+  .fl-spd:not(:disabled):hover { border-style:solid; }
+  .fl-spd span { font-weight:700; font-size:.68rem; letter-spacing:.06em; color:#78909c; }
+  .fl-spd code { color:#1b5e20; font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fl-spd.vacio code { color:#98a2ad; font-style:italic; font-family:inherit; }
+  .fl-arch { display:flex; gap:6px; align-items:center; font-size:.74rem; color:#5f6b76; font-family:var(--bs-font-monospace); overflow:hidden; }
+  .fl-arch span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fl-users { padding:6px 0 8px; flex:1; }
+  .fl-users-head { display:flex; justify-content:space-between; align-items:center; padding:2px 12px 6px; font-size:.72rem; font-weight:700; color:#5f6b76; text-transform:uppercase; letter-spacing:.04em; }
+  .fl-area { margin:4px 12px 2px; padding-left:7px; border-left:3px solid var(--a); font-size:.68rem; font-weight:700; color:#5f6b76; letter-spacing:.04em; }
+  .fl-user { display:flex; gap:8px; align-items:flex-start; padding:4px 12px; cursor:default; }
+  body.editable .fl-user { cursor:pointer; }
+  body.editable .fl-user:hover { background:#f1f8f2; }
+  .fl-id { flex:none; min-width:30px; text-align:center; font-size:.72rem; font-weight:700; background:#eceff1; color:#37474f; border-radius:4px; padding:2px 4px; margin-top:1px; }
+  .fl-u { min-width:0; display:flex; flex-direction:column; }
+  .fl-u b { font-size:.8rem; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
+  .fl-u small { font-size:.7rem; color:#78909c; overflow-wrap:anywhere; }
+  .fl-user.pendiente b { color:#98a2ad; font-style:italic; }
+  .fl-vacio { padding:6px 12px; font-size:.78rem; color:#98a2ad; font-style:italic; }
+  .fl-foot { display:flex; gap:4px; padding:8px 10px; border-top:1px solid var(--line); background:#fafbfc; border-radius:0 0 10px 10px; }
+  .fl-arrow { flex:none; display:flex; align-items:center; justify-content:center; gap:4px; color:#90a4ae; }
+  .fl-h > .fl-arrow { flex-direction:column; width:64px; }
+  .fl-v > .fl-arrow { flex-direction:row; height:54px; }
+  .fl-lbl { font-size:.56rem; font-weight:700; letter-spacing:.08em; }
+  .fl-lbl:first-child { color:var(--turnar); } .fl-lbl:last-child { color:var(--aceptar); }
+  .fl-line { position:relative; background:#90a4ae; }
+  .fl-h .fl-line { width:46px; height:2px; } .fl-v .fl-line { width:2px; height:34px; }
+  .fl-line::after { content:""; position:absolute; border:6px solid transparent; }
+  .fl-h .fl-line::after { right:-6px; top:-5px; border-left:8px solid #90a4ae; border-right:0; }
+  .fl-v .fl-line::after { bottom:-6px; left:-5px; border-top:8px solid #90a4ae; border-bottom:0; }
+  @media print {
+    body > *:not(#board) { display:none !important; }
+    .board.es-flujo { padding:0; min-height:0; overflow:visible; }
+    .fl-bar, .fl-foot { display:none !important; }
+    .fl-diagrama.fl-h { flex-wrap:wrap; overflow:visible; row-gap:16px; }
+    .fl-node { break-inside:avoid; box-shadow:none; }
+  }
   .carga { display:flex; align-items:center; gap:14px; margin:40px auto; padding:18px 22px; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .btn-ocultar { opacity:.7; } .btn-ocultar:hover { opacity:1; }
   .oculto-col { opacity:.8; } .oculto-col small { font-weight:400; }
@@ -170,6 +223,7 @@
     <button class="btn btn-outline-success" data-vista="modulos"><i class="bi bi-grid-3x3-gap"></i> Módulos</button>
     <button class="btn btn-outline-success" data-vista="roles"><i class="bi bi-person-badge"></i> Roles</button>
     <button class="btn btn-outline-success" data-vista="matriz"><i class="bi bi-table"></i> Matriz</button>
+    <button class="btn btn-outline-success" data-vista="flujo"><i class="bi bi-diagram-2"></i> Flujo</button>
   </div>
 
   <input id="buscar" class="form-control form-control-sm" style="max-width:220px" placeholder="Buscar ID, usuario, nombre…">
@@ -396,7 +450,7 @@ function mapCatalogo(sistemas = [], modulos = [], cards = {}) {
       orden:num(x.orden), spd:String(x.spd || ''), color:color(x.color, i) })),
     subs: modulos.filter(x => String(x.estatus ?? 1) !== '0').map(x => ({ id:num(x.id), idSistema:num(x.id_sistema), nombre:String(x.nombre || ''),
       archivo:String(x.archivo_subsistema || ''), orden:num(x.orden), flujo:num(x.orden_flujo),
-      oculto:/^(1|true|si|sí)$/i.test(String(x.oculto_accesos ?? '').trim()) })),
+      oculto:/^(1|true|si|sí)$/i.test(String(x.oculto_accesos ?? '').trim()), spd:String(x.spd ?? '').trim() })),
     cardsPorSub: porSub
   };
 }
@@ -477,6 +531,8 @@ const VISTAS = {
              hint:'Cada columna es un módulo (subsistema) con su sistema debajo · ⋮⋮ arrastra columnas para ordenar el flujo · arrastra personas para darles acceso · ✕ quita el acceso · clic en el sistema para editarlo.' },
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
              hint:'Arrastra filas para cambiar el rol de una persona · "▸ módulos" despliega los módulos del rol; "Asignar" los da o quita a todo el rol.' },
+  flujo:   { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
+             hint:'Diagrama del flujo: cada paso es un módulo con su SPD y sus usuarios · flechas ◀ ▶ cambian el orden · clic en un usuario para editar su usuario y nombre · clic en SPD para editarlo.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
@@ -599,6 +655,101 @@ function elegirVisibles() {
   };
 }
 
+
+/* ---------------- Vista Flujo: diagrama de flujo de los módulos (subsistemas) ----------------
+   INICIO → paso 1 → paso 2 → … → FIN, en el orden del flujo (orden_flujo) y sin los módulos ocultos.
+   Cada paso muestra: módulo, sistema, SPD, archivo y las personas con acceso (ID · usuario · nombre · rol). */
+let flujoDir = leerPref('flujoDir', 'h');
+/** Guarda el nuevo orden de los visibles; los ocultos o filtrados conservan su lugar */
+function guardarFlujo(idsVisibles) {
+  const lista = subsFlujo(), visibles = new Set(idsVisibles), nuevos = idsVisibles.map(id => lista.find(x => x.id === id)).filter(Boolean);
+  let k = 0; const orden = lista.map(x => visibles.has(x.id) ? nuevos[k++] : x);
+  const cambiados = [];
+  orden.forEach((x, i) => { if (x.flujo !== i + 1) { x.flujo = i + 1; cambiados.push(x); } });
+  render();
+  if (cambiados.length) compartir(async () => { for (const x of cambiados) await Compartido.guardar('modulos', { id:x.id, orden_flujo:x.flujo }); }, 'Orden del flujo guardado');
+}
+function pasosFlujo(lista) {
+  const ocultos = Ocultos.get();
+  return subsFlujo().filter(sb => !ocultos.has(sb.id)).map(sb => {
+    const m = modDe(sb.idSistema), gente = lista.filter(p => tieneSub(p.id, sb) && coincide(p));
+    return { sb, m, gente };
+  }).filter(x => !filtro || x.gente.length || `${x.sb.nombre} ${x.m.nombre} ${x.sb.spd || ''}`.toLowerCase().includes(filtro));
+}
+function moverPaso(subId, dir) {
+  const ids = pasosFlujo(empleadosOrdenados()).map(x => x.sb.id), i = ids.indexOf(subId), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  guardarFlujo(ids);
+}
+function htmlFlujo(lista) {
+  const pasos = pasosFlujo(lista), ocultos = db.subs.filter(x => Ocultos.has(x.id)).length;
+  const flecha = `<div class="fl-arrow" aria-hidden="true"><span class="fl-lbl">TURNAR</span><span class="fl-line"></span><span class="fl-lbl">ACEPTAR</span></div>`;
+  const nodo = ({ sb, m, gente }, i) => {
+    const grupos = [];
+    db.areas.forEach(a => { const g = gente.filter(p => p.areaId === a.id); if (g.length) grupos.push({ a, g }); });
+    const sin = gente.filter(p => !areaDe(p.areaId)); if (sin.length) grupos.push({ a:null, g:sin });
+    return `<article class="fl-node" style="--c:${m.color}" data-key="sub" data-id="${sb.id}" data-sis="${m.id}">
+      <header class="fl-head">
+        <div class="fl-paso">PASO ${i + 1}<span>ID ${sb.id}</span></div>
+        <h3 title="${esc(sb.nombre)}">${esc(sb.nombre)}</h3>
+        <div class="fl-sis">${m.id} · ${esc(m.nombre)}</div>
+      </header>
+      <div class="fl-meta">
+        <button type="button" class="fl-spd ${sb.spd ? '' : 'vacio'}" data-act="spd-sub" ${PUEDE_EDITAR || sb.spd ? '' : 'disabled'} title="${PUEDE_EDITAR ? 'Editar SPD' : 'SPD'}">
+          <i class="bi bi-database${sb.spd ? '-fill-check' : ''}"></i><span>SPD</span><code>${esc(sb.spd || (PUEDE_EDITAR ? 'Agregar SPD' : 'Sin SPD'))}</code>${PUEDE_EDITAR ? '<i class="bi bi-pencil ms-auto"></i>' : ''}</button>
+        ${sb.archivo ? `<div class="fl-arch"><i class="bi bi-file-earmark-code"></i><span>${esc(sb.archivo)}</span></div>` : ''}
+      </div>
+      <div class="fl-users">
+        <div class="fl-users-head"><span><i class="bi bi-people"></i> Usuarios con acceso</span><span class="badge text-bg-light">${gente.length}</span></div>
+        ${grupos.map(({ a, g }) => `<div class="fl-area" style="--a:${a?.color || '#90a4ae'}">${esc(a?.nombre || 'SIN ÁREA')}</div>
+          ${g.map(p => { const r = rolDe(p.rolId), nc = nombreCompleto(p); return `<div class="fl-user ${nc ? '' : 'pendiente'}" data-pid="${p.id}" title="${PUEDE_EDITAR ? 'Clic para editar usuario y nombre' : esc(nc)}">
+            <span class="fl-id">${p.id}</span><span class="fl-u"><b>${esc(nc || '(SIN NOMBRE)')}</b><small>${esc(p.usuario || 'sin usuario')} · ${esc(r?.nombre || 'SIN ROL')}</small></span></div>`; }).join('')}`).join('')
+          || '<div class="fl-vacio">Sin usuarios asignados</div>'}
+      </div>
+      ${PUEDE_EDITAR ? `<footer class="fl-foot">
+        <button class="btn btn-sm btn-light" data-act="paso" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Mover antes"><i class="bi bi-arrow-${flujoDir === 'v' ? 'up' : 'left'}"></i></button>
+        <button class="btn btn-sm btn-light" data-act="paso" data-dir="1" ${i === pasos.length - 1 ? 'disabled' : ''} title="Mover después"><i class="bi bi-arrow-${flujoDir === 'v' ? 'down' : 'right'}"></i></button>
+        <button class="btn btn-sm btn-outline-success ms-auto" data-act="personas" title="Agregar o quitar usuarios"><i class="bi bi-person-plus"></i> Usuarios</button>
+        <button class="btn btn-sm btn-light" data-act="edit-col" title="Editar módulo"><i class="bi bi-pencil-square"></i></button>
+      </footer>` : ''}
+    </article>`;
+  };
+  const barra = `<div class="fl-bar">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Dirección del diagrama">
+        <button class="btn btn-outline-secondary ${flujoDir === 'h' ? 'active' : ''}" data-fl-dir="h"><i class="bi bi-arrow-right"></i> Horizontal</button>
+        <button class="btn btn-outline-secondary ${flujoDir === 'v' ? 'active' : ''}" data-fl-dir="v"><i class="bi bi-arrow-down"></i> Vertical</button>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" data-fl-print><i class="bi bi-printer"></i> Imprimir / PDF</button>
+      <span class="small text-muted">${pasos.length} paso${pasos.length === 1 ? '' : 's'}${ocultos ? ` · ${ocultos} módulo(s) oculto(s) no aparecen` : ''}${filtro ? ' · filtrado por la búsqueda' : ''}</span>
+    </div>`;
+  if (!pasos.length) return barra + `<div class="p-4 text-muted">No hay módulos para mostrar${filtro ? ' con esa búsqueda' : ''}.</div>`;
+  return barra + `<div class="fl-diagrama fl-${flujoDir}">
+      <div class="fl-term">INICIO</div>${flecha}
+      ${pasos.map((p, i) => nodo(p, i)).join(flecha)}
+      ${flecha}<div class="fl-term">FIN</div>
+    </div>`;
+}
+/** SPD de un módulo (subsistema): columna spd de la hoja Modulos */
+function editarSpdSub(subId) {
+  const sb = db.subs.find(x => x.id === subId); if (!sb) return;
+  if (!PUEDE_EDITAR) return;
+  abrirModal(`SPD · ${sb.nombre}`, `
+    <form id="f" class="row g-2">
+      <div class="col-12"><label class="form-label small">Nombre del SPD <span class="text-muted">(opcional)</span></label>
+        <input name="spd" class="form-control font-monospace" value="${esc(sb.spd || '')}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off"></div>
+      <div class="col-12 small text-muted">Se guarda en la hoja Modulos (columna spd). Déjalo vacío para quitarlo.</div>
+      <button hidden></button>
+    </form>`, {
+    async guardar() {
+      const spd = (new FormData($('#f')).get('spd') || '').trim();
+      if (spd === (sb.spd || '')) return;
+      sb.spd = spd; render();
+      await compartir(() => Compartido.guardar('modulos', { id:sb.id, spd }), spd ? `SPD guardado: ${spd}` : 'SPD eliminado');
+    }
+  });
+}
+
 /* Vista Módulos: un grupo por SUBSISTEMA (cabecera = subsistema, abajo el sistema en pequeño),
    en el orden del flujo (orden_flujo de la hoja Modulos) y dividido en sub-columnas por área */
 function subsFlujo() {
@@ -653,6 +804,7 @@ function htmlModulos(lista) {
           <button type="button" class="sis-mini" data-act="edit-sis" title="${PUEDE_EDITAR ? 'Editar sistema' : 'Sistema'} ${esc(m.nombre)}" ${PUEDE_EDITAR ? '' : 'disabled'}>${m.id} · ${esc(m.nombre)}</button>
         </span>
         ${sb.archivo ? `<span class="folder-tag" title="Archivo del subsistema">${esc(sb.archivo)}</span>` : ''}
+        <button class="btn btn-sm btn-link btn-spd ${sb.spd ? 'tiene' : ''}" data-act="spd-sub" ${PUEDE_EDITAR || sb.spd ? '' : 'disabled'} title="${sb.spd ? 'SPD: ' + esc(sb.spd) : 'SPD (opcional)'}"><i class="bi ${sb.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
         <span class="badge bg-light text-dark">${gente.length}</span>
         ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
@@ -739,12 +891,14 @@ function render() {
 
   const board = $('#board');
   board.classList.toggle('es-matriz', vista === 'matriz');
+  board.classList.toggle('es-flujo', vista === 'flujo');
   board.classList.toggle('con-perm', vista === 'modulos');
   board.classList.toggle('vista-modulos', vista === 'modulos');
   if (vista === 'matriz') { board.innerHTML = htmlMatriz(); return; }
 
   const lista = empleadosOrdenados();
   if (vista === 'modulos') { board.innerHTML = htmlModulos(lista); initSortable(); return; }
+  if (vista === 'flujo') { board.innerHTML = htmlFlujo(lista); return; }
 
   let cols = [];
   if (vista === 'areas') {
@@ -802,14 +956,7 @@ function initSortable() {
       const ids = [...board.querySelectorAll(selector)].map(el => +el.dataset.id);
       if (vista === 'modulos') {
         // Orden del flujo de subsistemas: se guarda en Modulos.orden_flujo (compartido)
-        // Los ocultos (o filtrados) conservan su lugar; solo se reacomodan los visibles
-        const lista = subsFlujo(), visibles = new Set(ids), nuevos = ids.map(id => lista.find(x => x.id === id)).filter(Boolean);
-        let k = 0; const orden = lista.map(x => visibles.has(x.id) ? nuevos[k++] : x);
-        const cambiados = [];
-        orden.forEach((x, k) => { if (x.flujo !== k + 1) { x.flujo = k + 1; cambiados.push(x); } });
-        render();
-        if (cambiados.length) compartir(async () => { for (const x of cambiados) await Compartido.guardar('modulos', { id:x.id, orden_flujo:x.flujo }); }, 'Orden del flujo guardado');
-        return;
+        return guardarFlujo(ids);   // los ocultos (o filtrados) conservan su lugar
       }
       const col = VISTAS[vista].coleccion();
       const antes = new Map(col.map(x => [x.id, x.orden]));
@@ -907,7 +1054,14 @@ function abrirModal(titulo, cuerpo, acc, { grande = false } = {}) {
   modal.show();
 }
 const error = msg => { $('#mError').textContent = msg; return false; };
-$('#mGuardar').onclick = async () => { if (await acciones.guardar?.() !== false) modal.hide(); };
+/** Botón con indicador de carga mientras se guarda */
+async function conCarga(btn, fn, texto = 'Guardando…') {
+  if (btn.disabled) return;
+  const html = btn.innerHTML; btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${texto}`;
+  try { return await fn(); } finally { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = html; }
+}
+$('#mGuardar').onclick = () => conCarga($('#mGuardar'), async () => { if (await acciones.guardar?.() !== false) modal.hide(); });
 $('#mEliminar').onclick = async () => { if (await acciones.eliminar?.() !== false) modal.hide(); };
 modalEl.addEventListener('submit', e => { e.preventDefault(); $('#mGuardar').click(); });
 modalEl.addEventListener('shown.bs.modal', () => modalEl.querySelector('.modal-body input, .modal-body select')?.focus());
@@ -1173,7 +1327,7 @@ function editarColumna(key, id) {
       if (esModulo) {
         const fila = { id:it.id, nombre:it.nombre, folder:it.folder, orden:it.orden, spd:it.spd, color:it.color };
         if (nuevo) Object.assign(fila, { estatus:1, fecha_alta:stamp(), descripcion:'' });
-        compartir(() => Compartido.guardar('sistemas', fila), nuevo ? 'Módulo agregado (también en Sistemas)' : 'Cambios guardados (también en Sistemas)');
+        await compartir(() => Compartido.guardar('sistemas', fila), nuevo ? 'Módulo agregado (también en Sistemas)' : 'Cambios guardados (también en Sistemas)');
       } else { cambio(); toast(nuevo ? `${etiqueta} agregado` : 'Cambios guardados'); }
     },
     eliminar: nuevo ? null : async () => {
@@ -1207,6 +1361,7 @@ function editarSub(subId, sistemaId) {
       <div class="col-12"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(s.nombre)}" placeholder="Ej. ALTA DE PROMOCIONES"></div>
       <div class="col-8"><label class="form-label small">Archivo del subsistema</label><input name="archivo" class="form-control font-monospace" value="${esc(s.archivo)}" placeholder="Ej. alta_promociones.html"></div>
       <div class="col-4"><label class="form-label small">Orden en su sistema</label><input name="orden" type="number" min="1" class="form-control" value="${s.orden ?? ''}"></div>
+      <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control font-monospace" value="${esc(s.spd || '')}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off"></div>
       <div class="col-12"><label class="form-label small">Sistema</label><select name="sistema" class="form-select">${opciones(db.modulos, s.idSistema)}</select></div>
       <div class="col-12 small text-muted">${nuevo ? 'El ID se asigna automáticamente.' : `Tiene ${nCards} card(s) en Sistemas y Módulos; si cambias el módulo, se mueven con él.`}
         Los cambios se ven también en Sistemas y Módulos.</div>
@@ -1219,9 +1374,10 @@ function editarSub(subId, sistemaId) {
       const idSistema = num(f.get('sistema'));
       if (!nuevo && idSistema !== s.idSistema &&
           !await confirmar(`¿Mover "${nombre}" a ${modDe(idSistema)?.nombre}? Se lleva sus ${nCards} card(s).`)) return false;
-      const fila = { nombre, archivo_subsistema:(f.get('archivo') || '').trim(), orden:num(f.get('orden')) ?? subsDe(idSistema).length + 1, id_sistema:idSistema };
+      const fila = { nombre, archivo_subsistema:(f.get('archivo') || '').trim(), orden:num(f.get('orden')) ?? subsDe(idSistema).length + 1, id_sistema:idSistema,
+                     spd:(f.get('spd') || '').trim() };
       if (nuevo) Object.assign(fila, { estatus:1, fecha_alta:stamp() }); else fila.id = s.id;
-      compartir(() => Compartido.guardar('modulos', fila), nuevo ? 'Subsistema agregado (también en Sistemas)' : 'Subsistema guardado (también en Sistemas)');
+      await compartir(() => Compartido.guardar('modulos', fila), nuevo ? 'Subsistema agregado (también en Sistemas)' : 'Subsistema guardado (también en Sistemas)');
     },
     eliminar: nuevo ? null : async () => {
       if (nCards) return error(`Tiene ${nCards} card(s). Elimínalas primero en Sistemas y Módulos.`);
@@ -1395,6 +1551,8 @@ $('#board').addEventListener('click', e => {
                                                                : quitarDeModulo(+act.closest('[data-pid]').dataset.pid, +act.dataset.m);
     if (act.dataset.act === 'personas') return sec.dataset.key === 'sub' ? asignarPersonasSub(+sec.dataset.id) : asignarPersonas(+sec.dataset.id);
     if (act.dataset.act === 'edit-sis') return editarColumna('modulo', +sec.dataset.sis);
+    if (act.dataset.act === 'spd-sub')  return editarSpdSub(+sec.dataset.id);
+    if (act.dataset.act === 'paso')     return moverPaso(+sec.dataset.id, +act.dataset.dir);
     if (act.dataset.act === 'ocultar') { const sb = db.subs.find(x => x.id === +sec.dataset.id); return Ocultos.toggle(sb.id, true, `«${sb.nombre}» oculto para todos (Módulos visibles para mostrarlo)`); }
     if (act.dataset.act === 'ver-ocultos') return elegirVisibles();
     if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
@@ -1409,6 +1567,9 @@ $('#board').addEventListener('click', e => {
     if (act.dataset.act === 'add-col')  return vista === 'modulos' ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
     if (act.dataset.act === 'edit-col') return sec.dataset.key === 'sub' ? editarSub(+sec.dataset.id, +sec.dataset.sis) : editarColumna(sec.dataset.key, +sec.dataset.id);
   }
+  const dir = e.target.closest('[data-fl-dir]');
+  if (dir) { flujoDir = dir.dataset.flDir; guardarPref('flujoDir', flujoDir); return render(); }
+  if (e.target.closest('[data-fl-print]')) return window.print();
   const row = e.target.closest('[data-pid]');
   if (row && !e.target.closest('input')) editarEmpleado(empDe(+row.dataset.pid));
 });

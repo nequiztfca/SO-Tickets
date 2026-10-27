@@ -95,6 +95,13 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
 .loader-msg { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; color: var(--fg); }
 .loader-msg small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
 .spin-lg { width: 30px; height: 30px; border-width: 3px; }
+.spin-btn { margin-right: 8px; vertical-align: -1px; }
+.btn-accent .spin, .btn-accent.is-busy .spin { border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
+.is-busy { cursor: progress; }
+.com-tools { display: flex; align-items: center; gap: 6px; }
+.com-tools select { width: auto; }
+.com-tools .grow { flex: 1; }
+.com .txt .code-box { margin: 6px 0; white-space: normal; }
 .skel { border-radius: 12px; background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 45%, var(--surface) 90%); background-size: 220% 100%; animation: shimmer 1.3s ease-in-out infinite; border: 1px solid var(--line); }
 .skel-metrics { height: 92px; margin-bottom: 18px; }
 .skel-row { height: 104px; margin-bottom: 12px; }
@@ -1196,6 +1203,30 @@ function viewTablero() {
     ${toolbar}${board}`;
 }
 
+/** Botón con indicador de carga mientras se guarda: evita doble clic y muestra el progreso */
+async function conCarga(btn, fn, texto = 'Guardando…') {
+  if (!btn) return fn();
+  if (btn.disabled) return;
+  const html = btn.innerHTML;
+  btn.disabled = true; btn.classList.add('is-busy'); btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = `<span class="spin spin-btn" aria-hidden="true"></span>${esc(texto)}`;
+  try { return await fn(); }
+  finally { if (btn.isConnected) { btn.disabled = false; btn.classList.remove('is-busy'); btn.removeAttribute('aria-busy'); btn.innerHTML = html; } }
+}
+/** Texto de comentario: admite bloques de código con ```lenguaje … ``` */
+const FENCE_RE = /```([\w#+.-]*)[ \t]*\n?([\s\S]*?)```/g;
+function comentarioHtml(t) {
+  const s = String(t || ''); let out = '', last = 0, m;
+  FENCE_RE.lastIndex = 0;
+  while ((m = FENCE_RE.exec(s))) {
+    out += richText(s.slice(last, m.index).replace(/\n$/, ''));
+    const lang = CONFIG.LANGS.includes(m[1].toLowerCase()) ? m[1].toLowerCase() : 'plaintext';
+    out += codeBox({ lenguaje: lang, contenido: m[2].replace(/\n$/, '') });
+    last = FENCE_RE.lastIndex;
+  }
+  return out + richText(s.slice(last).replace(/^\n/, ''));
+}
+
 /** Cambia el estado al instante en pantalla y guarda en segundo plano (se revierte si falla) */
 async function moveCard(c, estado, after) {
   if (!c || c.estado === estado) return;
@@ -1223,13 +1254,13 @@ function assignCard(c) {
     `<button class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" id="asSave">Guardar</button>`, 'md');
   $$('[data-person]', el).forEach(b => b.onclick = () => { const u = b.dataset.person; sel = sel.includes(u) ? sel.filter(x => x !== u) : [...sel, u]; b.classList.toggle('on'); });
   $('#asSave', el).onclick = async () => {
-    const btn = $('#asSave', el); btn.disabled = true;
+    const btn = $('#asSave', el); btn.disabled = true; btn.innerHTML = '<span class="spin spin-btn" aria-hidden="true"></span>Guardando…';
     try {
       const before = splitList(c.asignados);
       const card = await Repo.save('cards', { id: c.id, asignados: sel.join(','), actualizado: stamp() });
       await Notif.send(sel.filter(u => !before.includes(u)), 'asignacion', card || c, '');
       Modal.close(); toast(sel.length ? `#${c.id} asignada a ${sel.map(u => userOf(u).name).join(', ')}` : `#${c.id} sin asignar`); render();
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
+    } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = 'Guardar'; }
   };
 }
 
@@ -1383,8 +1414,8 @@ function formArea(a) {
     Modal.close(); toast(isNew ? `Sistema «${nombre}» creado` : 'Sistema actualizado');
     if (isNew) go('sistema-' + saved.id); else render();
   };
-  $('#faSave', el).onclick = () => save().catch(err => toast(err.message, true));
-  $('#fArea', el).onsubmit = e => { e.preventDefault(); save().catch(err => toast(err.message, true)); };
+  $('#faSave', el).onclick = () => conCarga($('#faSave', el), save).catch(err => toast(err.message, true));
+  $('#fArea', el).onsubmit = e => { e.preventDefault(); $('#faSave', el).click(); };
   setTimeout(() => $('#faNombre', el).focus(), 300);
 }
 function formModulo(m, idSistema) {
@@ -1418,8 +1449,8 @@ function formModulo(m, idSistema) {
     toast(isNew ? `Módulo «${nombre}» creado` : moved ? `Módulo movido a ${Q.area(id_sistema)?.nombre} con sus ${nCards} card(s)` : 'Módulo actualizado');
     if (isNew) go('modulo-' + saved.id); else if (moved && State.route.view === 'area') go('sistema-' + id_sistema); else render();
   };
-  $('#fmSave', el).onclick = () => save().catch(err => toast(err.message, true));
-  $('#fMod', el).onsubmit = e => { e.preventDefault(); save().catch(err => toast(err.message, true)); };
+  $('#fmSave', el).onclick = () => conCarga($('#fmSave', el), save).catch(err => toast(err.message, true));
+  $('#fMod', el).onsubmit = e => { e.preventDefault(); $('#fmSave', el).click(); };
   setTimeout(() => $('#fmNombre', el).focus(), 300);
 }
 
@@ -1543,8 +1574,11 @@ function openCard(id) {
       ${logged ? `<form class="input-group input-group-sm mt-2" id="chkForm"><input class="form-control" id="chkNew" placeholder="Nueva tarea" maxlength="200"><button class="btn btn-ghost">${icon('plus')} Agregar</button></form>` : ''}
     </div>
     <div class="d-section"><h4>${icon('chat')} Comentarios <span class="idtag">${coms.length}</span></h4>
-      ${coms.map(k => `<div class="com">${avatar(k.autor, true)}<div class="body"><div class="who"><span><b>${esc(userOf(k.autor).name)}</b> · ${ago(k.fecha_alta)}</span>${logged && (k.autor === Auth.me() || Auth.isAdmin()) ? `<button class="btn-icon danger" data-com-del="${k.id}" title="Eliminar comentario">${icon('trash')}</button>` : ''}</div><div class="txt">${richText(k.texto)}</div></div></div>`).join('') || '<div class="text-body-secondary small">Sin comentarios.</div>'}
-      ${logged ? `<form id="comForm" class="mt-2"><textarea class="form-control form-control-sm" id="comNew" rows="2" placeholder="Escribe un comentario (Ctrl+Enter para enviar)"></textarea><div class="text-end mt-2"><button class="btn btn-sm btn-accent">Comentar</button></div></form>` : ''}
+      ${coms.map(k => `<div class="com">${avatar(k.autor, true)}<div class="body"><div class="who"><span><b>${esc(userOf(k.autor).name)}</b> · ${ago(k.fecha_alta)}</span>${logged && (k.autor === Auth.me() || Auth.isAdmin()) ? `<button class="btn-icon danger" data-com-del="${k.id}" title="Eliminar comentario">${icon('trash')}</button>` : ''}</div><div class="txt">${comentarioHtml(k.texto)}</div></div></div>`).join('') || '<div class="text-body-secondary small">Sin comentarios.</div>'}
+      ${logged ? `<form id="comForm" class="mt-2"><textarea class="form-control form-control-sm" id="comNew" rows="3" placeholder="Escribe un comentario (Ctrl+Enter para enviar). Para código usa el botón o escribe \`\`\`sql … \`\`\`"></textarea>
+        <div class="com-tools mt-2"><select class="form-select form-select-sm" id="comLang" aria-label="Lenguaje del código">${CONFIG.LANGS.map(l => `<option ${l === 'sql' ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          <button type="button" class="btn btn-sm btn-ghost" id="comCode" title="Insertar un bloque de código">${icon('code')} Código</button>
+          <span class="grow"></span><button class="btn btn-sm btn-accent" id="comSend">Comentar</button></div></form>` : ''}
     </div>`;
   const foot = logged ? `${canDelete(c) ? `<button class="btn btn-ghost text-danger me-auto" data-card-del>${icon('trash')} Eliminar</button>` : ''}<button class="btn btn-accent" data-card-edit>${icon('edit')} Editar card</button>` : '';
   const el = Modal.open(`<span class="idtag me-2">#${esc(c.id)}</span>${esc(c.titulo)}<div class="small text-body-secondary fw-normal mt-1" style="font-family:var(--font-body)">${esc(m?.nombre || '')}</div>`, body, foot);
@@ -1560,15 +1594,26 @@ function openCard(id) {
   $$('[data-chk]', el).forEach(i => i.onchange = async () => { await Repo.save('checklist', { id: Number(i.dataset.chk), hecho: i.checked }); await touch(); refresh(); });
   $$('[data-chk-del]', el).forEach(b => b.onclick = async () => { await Repo.remove('checklist', b.dataset.chkDel); refresh(); });
   $$('[data-com-del]', el).forEach(b => b.onclick = async () => { if (await ask('Eliminar comentario', 'Esta acción no se puede deshacer.')) { await Repo.remove('comentarios', b.dataset.comDel); refresh(); } });
-  const cf = $('#chkForm', el); if (cf) cf.onsubmit = async e => { e.preventDefault(); const v = $('#chkNew', el).value.trim(); if (!v) return; await Repo.save('checklist', { id_card: c.id, texto: v, hecho: false, autor: Auth.me(), fecha_alta: stamp() }); await touch(); refresh(); setTimeout(() => $('#chkNew', Modal.el)?.focus(), 50); };
+  const cf = $('#chkForm', el); if (cf) cf.onsubmit = e => { e.preventDefault(); const v = $('#chkNew', el).value.trim(); if (!v) return; conCarga($('button', cf), async () => { await Repo.save('checklist', { id_card: c.id, texto: v, hecho: false, autor: Auth.me(), fecha_alta: stamp() }); await touch(); refresh(); setTimeout(() => $('#chkNew', Modal.el)?.focus(), 50); }, 'Agregando…').catch(err => toast(err.message, true)); };
   const mf = $('#comForm', el);
   if (mf) {
-    const send = async () => {
+    const send = () => {
       const v = $('#comNew', el).value.trim(); if (!v) return;
-      await Repo.save('comentarios', { id_card: c.id, autor: Auth.me(), texto: v, fecha_alta: stamp() });
-      await Notif.send(Notif.watchers(c), 'comentario', c, v.slice(0, 120));
-      await touch(); refresh();
+      if (v.length > CONFIG.MAX_TEXTO) return toast(`El comentario supera ${CONFIG.MAX_TEXTO.toLocaleString('es-MX')} caracteres.`, true);
+      $('#comNew', el).readOnly = true;
+      return conCarga($('#comSend', el), async () => {
+        await Repo.save('comentarios', { id_card: c.id, autor: Auth.me(), texto: v, fecha_alta: stamp() });
+        await Notif.send(Notif.watchers(c), 'comentario', c, v.replace(FENCE_RE, '[código]').slice(0, 120));
+        await touch(); refresh();
+      }, 'Enviando…').catch(err => { toast(err.message, true); const t = $('#comNew', el); if (t) t.readOnly = false; });
     };
+    $('#comCode', el).onclick = () => {
+      const t = $('#comNew', el), lang = $('#comLang', el).value, a = t.selectionStart, b = t.selectionEnd, sel = t.value.slice(a, b);
+      const pre = (a && t.value[a - 1] !== '\n' ? '\n' : '') + '```' + lang + '\n', post = '\n```\n';
+      t.setRangeText(pre + sel + post, a, b, 'end');
+      const pos = a + pre.length + sel.length; t.focus(); t.setSelectionRange(pos, pos);
+    };
+    $('#comNew', el).addEventListener('keydown', e => { if (e.key === 'Tab' && /```[^`]*$/.test(e.target.value.slice(0, e.target.selectionStart)) && (e.target.value.slice(0, e.target.selectionStart).match(/```/g) || []).length % 2) { e.preventDefault(); e.target.setRangeText('  ', e.target.selectionStart, e.target.selectionEnd, 'end'); } });
     mf.onsubmit = e => { e.preventDefault(); send(); };
     $('#comNew', el).onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } };
   }
@@ -1668,7 +1713,8 @@ function editCard(c, defaults = {}) {
     if (!Q.modulo(st.id_modulo)) { toast('Elige el sistema y módulo de la card', true); return $('#edModulo', el).focus(); }
     const blocks = st.blocks.filter(b => b.tipo === 'archivo' ? b.fileName : String(b.contenido || '').trim());
     if (blocks.some(b => String(b.contenido || '').length > CONFIG.MAX_TEXTO)) { toast(`Un bloque supera ${CONFIG.MAX_TEXTO.toLocaleString('es-MX')} caracteres. Adjúntalo como archivo.`, true); return; }
-    const btn = $('#edSave', el); btn.disabled = true;
+    const btn = $('#edSave', el), label = btn.innerHTML; btn.disabled = true;
+    btn.innerHTML = `<span class="spin spin-btn" aria-hidden="true"></span>${blocks.some(b => b.tipo === 'archivo' && /^data:/.test(b.url || '')) && Repo === RemoteRepo ? 'Subiendo archivos…' : 'Guardando…'}`;
     try {
       const now = stamp();
       const card = await Repo.save('cards', {
@@ -1686,7 +1732,7 @@ function editCard(c, defaults = {}) {
       }
       toast(isNew ? 'Card creada' : 'Card actualizada');
       render(); openCard(card.id);
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
+    } catch (err) { toast(err.message, true); btn.disabled = false; btn.innerHTML = label; }
   };
   setTimeout(() => $('#edTitulo', el)?.focus(), 300);
 }
@@ -1982,7 +2028,7 @@ ${[5, 6, 7, 8].map(f => `<xf numFmtId="0" fontId="${f}" fillId="0" borderId="1" 
  * Columnas: integrante, rol, ID, sistema, módulo, título, descripción breve (sin checklist) y estatus con su fecha. */
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dmy = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/); return m ? `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}:${m[5]}` : ''}` : String(s || ''); };
-const fechaEstado = c => c.fecha_estado || c.actualizado || c.fecha_alta;
+const fechaEstado = c => c.fecha_estado || (c.estado === 'seguimiento' ? c.fecha_alta : c.actualizado) || c.fecha_alta;   // cards anteriores sin fecha_estado
 function informeFilas({ desde, hasta, persona = '', sistema = '' }) {
   const enRango = s => { const d = String(s || '').slice(0, 10); return !!d && d >= desde && d <= hasta; };
   const nombre = u => u === '__none' ? 'Sin asignar' : userOf(u).name;
