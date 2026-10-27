@@ -7,14 +7,36 @@
 <!-- Dependencias por CDN -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script>
+  // Tema guardado en este navegador (compartido con Sistemas y Módulos): se aplica antes de pintar
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('tfca_theme'); var p = JSON.parse(localStorage.getItem('tfca_areas_prefs') || '{}'); if (p.tema) t = p.tema; } catch (e) {}
+    if (t !== 'dark' && t !== 'light') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-bs-theme', t);
+  })();
+</script>
 <style>
-  :root { --bg:#f3f5f7; --line:#d5dbe1; --verde:#2e7d32; --turnar:#e8702a; --aceptar:#1b6b2a; }
-  body { background: var(--bg); }
+  :root { --bg:#f3f5f7; --line:#d5dbe1; --verde:#2e7d32; --turnar:#e8702a; --aceptar:#1b6b2a;
+          --surface:#ffffff; --surface-2:#fafbfc; --hover:#f2f7ff; --text:#1f2a33; --muted:#5f6b76; --muted-2:#98a2ad;
+          --chip:#eceff1; --phead:#e8f5e9; --warn-bg:#fff8e1; --ok-bg:#c8e6c9; --ok-fg:#1b5e20; --code:#1b5e20;
+          --brand:#8a1c3b; --brand-soft:#f4e3e8; }
+  /* Tema oscuro (se guarda en este navegador; es el mismo de Sistemas y Módulos) */
+  [data-bs-theme="dark"] { --bg:#111417; --line:#30363d; --verde:#66bb6a; --turnar:#f08a4b; --aceptar:#4caf50;
+          --surface:#1a1e23; --surface-2:#20252b; --hover:#252b32; --text:#e6e9ec; --muted:#9aa5b1; --muted-2:#6c7781;
+          --chip:#2a3037; --phead:#1d2a20; --warn-bg:#3a3320; --ok-bg:#1f3a24; --ok-fg:#8fd694; --code:#8fd694;
+          --brand:#e07795; --brand-soft:#3b1f29; color-scheme:dark; }
+  [data-bs-theme="dark"] .table-light { --bs-table-bg:#23292f; --bs-table-color:#dee2e6; --bs-table-border-color:#30363d; --bs-table-striped-bg:#2a3037; --bs-table-hover-bg:#2a3037; }
+  [data-bs-theme="dark"] .btn-light { --bs-btn-bg:#262c33; --bs-btn-color:#dee2e6; --bs-btn-border-color:#3a414a; --bs-btn-hover-bg:#2f363e; --bs-btn-hover-color:#fff; --bs-btn-hover-border-color:#495057; --bs-btn-disabled-bg:#1f242a; --bs-btn-disabled-color:#6c7781; --bs-btn-disabled-border-color:#30363d; --bs-btn-active-bg:#343b43; }
+  [data-bs-theme="dark"] .text-bg-light, [data-bs-theme="dark"] .badge.bg-light { background-color:#2f363e !important; color:#dee2e6 !important; }
+  [data-bs-theme="dark"] .sortable-ghost { background:#1e3a55 !important; }
+  [data-bs-theme="dark"] .fl-term { background:#cfd8dc; color:#111417; }
+  body { background: var(--bg); color: var(--text); }
 
   /* ---------- Tablero (columnas tipo Kanban) ---------- */
   .board { display:flex; gap:16px; align-items:flex-start; overflow-x:auto; padding:16px; min-height:calc(100vh - 130px); }
   .board.es-matriz { display:block; }
-  .col-board { flex:0 0 560px; max-width:calc(100vw - 32px); background:#fff; border:1px solid var(--line);
+  .col-board { flex:0 0 560px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line);
                border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; flex-direction:column;
                max-height:calc(100vh - 160px); }
   .compacto .col-board { flex-basis:380px; }
@@ -28,12 +50,12 @@
 
   /* ---------- Vista Módulos: grupo por módulo, sub-columnas por área ---------- */
   .board.vista-modulos { gap:0; align-items:stretch; }
-  .mod-group { flex:0 0 auto; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line);
+  .mod-group { flex:0 0 auto; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line);
                border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); max-height:calc(100vh - 160px); }
   .mod-cols { display:flex; align-items:stretch; flex:1; min-height:0; }
   .sub-col { flex:0 0 430px; max-width:calc(100vw - 120px); display:flex; flex-direction:column; min-height:0; }
   .compacto .sub-col { flex-basis:310px; }
-  .sub-head { background:color-mix(in srgb, var(--a) 20%, #fff); border-left:4px solid var(--a); border-bottom:1px solid var(--line);
+  .sub-head { background:color-mix(in srgb, var(--a) 20%, var(--surface)); border-left:4px solid var(--a); border-bottom:1px solid var(--line);
               font-weight:600; font-size:.8rem; padding:4px 8px; display:flex; justify-content:space-between; gap:6px; }
   .sub-col .ptable { flex:1; }
 
@@ -73,43 +95,43 @@
 
   /* Listas de selección en modales (personas / módulos) */
   .lista-sel { max-height:55vh; overflow:auto; }
-  .sel-head { position:sticky; top:0; z-index:1; background:color-mix(in srgb, var(--a) 18%, #fff); border-left:4px solid var(--a); cursor:pointer; }
-  .item-sel { cursor:pointer; border-bottom:1px solid #f0f2f4; }
-  .item-sel:hover { background:#f6f9fc; }
+  .sel-head { position:sticky; top:0; z-index:1; background:color-mix(in srgb, var(--a) 18%, var(--surface)); border-left:4px solid var(--a); cursor:pointer; }
+  .item-sel { cursor:pointer; border-bottom:1px solid var(--hover); }
+  .item-sel:hover { background:var(--hover); }
   .chip.parcial { opacity:.75; border-style:dashed; }
 
-  .phead { background:#e8f5e9; color:var(--verde); font-weight:700; position:sticky; top:0; z-index:1; }
-  .prow:not(.phead) { background:#fff; }
+  .phead { background:var(--phead); color:var(--verde); font-weight:700; position:sticky; top:0; z-index:1; }
+  .prow:not(.phead) { background:var(--surface); }
   .editable .prow:not(.phead) { cursor:pointer; }
-  .editable .prow:not(.phead):hover { background:#f2f7ff; }
+  .editable .prow:not(.phead):hover { background:var(--hover); }
   .prow.drag { cursor:grab; }
-  .prow.pendiente .c-nombre { color:#98a2ad; font-style:italic; }
-  .sub-acc { display:block; font-size:.68rem; color:#5f6b76; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prow.pendiente .c-nombre { color:var(--muted-2); font-style:italic; }
+  .sub-acc { display:block; font-size:.68rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sub-pick { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.75rem; padding:2px 0 4px 10px; }
   .sub-pick label { display:inline-flex; gap:4px; align-items:center; }
   .pbody { min-height:38px; }
-  .pbody:empty::after { content:attr(data-empty); display:block; padding:10px; color:#98a2ad; text-align:center; font-style:italic; }
+  .pbody:empty::after { content:attr(data-empty); display:block; padding:10px; color:var(--muted-2); text-align:center; font-style:italic; }
   .sortable-ghost { opacity:.4; background:#e3f2fd !important; }
 
   .perm { display:inline-block; width:18px; text-align:center; border-radius:3px; font-size:.7rem; font-weight:700;
-          margin-right:2px; background:#eceff1; color:#b0bec5; }
-  .perm.on { background:#c8e6c9; color:#1b5e20; }
+          margin-right:2px; background:var(--chip); color:var(--muted-2); }
+  .perm.on { background:var(--ok-bg); color:var(--ok-fg); }
   .perm.v2 { background:#fff3cd; color:#8a6d00; }
 
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
-  .chip { font-size:.72rem; padding:2px 8px; border-radius:20px; background:color-mix(in srgb, var(--c) 14%, #fff);
-          color:var(--c); border:1px solid color-mix(in srgb, var(--c) 40%, #fff); font-weight:600; }
+  .chip { font-size:.72rem; padding:2px 8px; border-radius:20px; background:color-mix(in srgb, var(--c) 14%, var(--surface));
+          color:var(--c); border:1px solid color-mix(in srgb, var(--c) 40%, var(--surface)); font-weight:600; }
 
   .add-col { flex:0 0 200px; min-height:120px; border:2px dashed var(--line); border-radius:10px; background:transparent;
-             color:#7b8794; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+             color:var(--muted); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
   .add-col:hover { border-color:var(--verde); color:var(--verde); }
   .vista-modulos .add-col { margin-left:16px; align-self:flex-start; }
 
   /* ---------- Matriz ---------- */
   .matriz-wrap th.mth { min-width:88px; font-size:.72rem; border-top:4px solid var(--c) !important; vertical-align:bottom; }
   .matriz-wrap td, .matriz-wrap th { font-size:.8rem; }
-  .matriz-wrap tbody th { position:sticky; left:0; background:#fff; z-index:1; }
-  .matriz-wrap td.parcial { background:#fff8e1; }
+  .matriz-wrap tbody th { position:sticky; left:0; background:var(--surface); z-index:1; }
+  .matriz-wrap td.parcial { background:var(--warn-bg); }
   .matriz-wrap tr.grupo th { background:var(--c); color:#fff; position:static; }
   .editable .matriz-wrap .form-check-input { cursor:pointer; }
 
@@ -119,62 +141,82 @@
   #toast { position:fixed; bottom:16px; right:16px; z-index:2000; }
 
   /* ---------- Menú común con Sistemas y Módulos ---------- */
-  .tb-brand { display:flex; align-items:center; gap:8px; font-weight:700; color:#1f1a1c; text-decoration:none; white-space:nowrap; }
-  .tb-brand b { color:#8a1c3b; }
+  .tb-brand { display:flex; align-items:center; gap:8px; font-weight:700; color:var(--text); text-decoration:none; white-space:nowrap; }
+  .tb-brand b { color:var(--brand); }
   .tb-mark { width:28px; height:28px; border-radius:7px; background:#8a1c3b; color:#fff; display:grid; place-items:center; font-size:.9rem; }
   .tb-nav { display:flex; gap:2px; margin-right:6px; }
-  .tb-nav a { color:#6d6266; text-decoration:none; font-size:.86rem; font-weight:600; padding:4px 10px; border-radius:7px; }
-  .tb-nav a:hover { background:#efe9eb; color:#1f1a1c; }
-  .tb-nav a.on { color:#8a1c3b; background:#f4e3e8; }
+  .tb-nav a { color:var(--muted); text-decoration:none; font-size:.86rem; font-weight:600; padding:4px 10px; border-radius:7px; }
+  .tb-nav a:hover { background:var(--hover); color:var(--text); }
+  .tb-nav a.on { color:var(--brand); background:var(--brand-soft); }
 
   /* ---------- Acceso: sin sesión es solo lectura; el formulario se abre con "Login" ---------- */
   .gate-abierto #vistas, .gate-abierto #buscar, .gate-abierto .form-switch, .gate-abierto #sync,
   .gate-abierto .solo-edicion, .gate-abierto #board, .gate-abierto #barra-info { display:none !important; }
   #gate { display:grid; place-items:center; padding:8vh 16px 40px; }
-  .gate-box { width:100%; max-width:400px; background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
+  .gate-box { width:100%; max-width:400px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:28px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
   .gate-box h2 { font-size:1.3rem; font-weight:700; margin:12px 0 6px; }
 
   /* ---------- Subsistemas (compartidos con Sistemas y Módulos) ---------- */
-  .subs-bar { display:flex; align-items:center; gap:6px; padding:2px 8px; border-bottom:1px solid var(--line); font-size:.78rem; color:#6b7785; }
+  .subs-bar { display:flex; align-items:center; gap:6px; padding:2px 8px; border-bottom:1px solid var(--line); font-size:.78rem; color:var(--muted); }
   .subs-list { display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border-bottom:1px solid var(--line); }
-  .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, #fff); cursor:pointer; }
+  .chip-sub { border:1px solid color-mix(in srgb, var(--c) 40%, var(--surface)); cursor:pointer; }
   .chip-sub:disabled { cursor:default; }
   /* ---------- Vista Flujo ---------- */
   .board.es-flujo { display:block; }
   .fl-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
   .fl-diagrama { display:flex; align-items:center; gap:0; padding:6px 4px 20px; }
   .fl-diagrama.fl-h { flex-direction:row; overflow-x:auto; align-items:flex-start; }
-  .fl-h > .fl-term, .fl-h > .fl-arrow { align-self:flex-start; margin-top:64px; }
-  .fl-diagrama.fl-v { flex-direction:column; }
+  .fl-h > .fl-termwrap, .fl-h > .fl-arrow { align-self:flex-start; margin-top:64px; }
+  .fl-termwrap { flex:none; display:flex; }
+  .fl-v .fl-termwrap, .fl-v > .fl-arrow { width:340px; justify-content:center; }
+  .fl-grupo { flex:none; display:flex; gap:12px; }
+  .fl-h .fl-grupo { flex-direction:column; width:300px; }
+  .fl-v .fl-grupo { flex-direction:row; align-items:flex-start; }
+  .fl-hijos { display:flex; gap:10px; }
+  .fl-h .fl-hijos { flex-direction:column; padding-left:14px; border-left:2px dashed color-mix(in srgb, var(--muted) 45%, transparent); margin-left:10px; }
+  .fl-v .fl-hijos { flex-direction:row; padding-top:12px; border-top:2px dashed color-mix(in srgb, var(--muted) 45%, transparent); }
+  .fl-node.hijo { border-top-width:3px; border-top-style:dashed; }
+  .fl-h .fl-node.hijo { width:100%; }
+  .fl-v .fl-node.hijo { width:300px; }
+  .fl-node.pila { box-shadow:0 2px 6px rgba(0,0,0,.07), 6px 6px 0 -1px var(--surface), 6px 6px 0 0 var(--line), 12px 12px 0 -1px var(--surface), 12px 12px 0 0 var(--line); margin-bottom:12px; }
+  .fl-toggle { border:0; border-top:1px solid var(--line); background:color-mix(in srgb, var(--c) 7%, var(--surface)); color:var(--c); font-size:.76rem; font-weight:600; padding:6px 10px; text-align:left; }
+  .fl-toggle:hover { background:color-mix(in srgb, var(--c) 14%, var(--surface)); }
+  .fl-spds { display:flex; flex-direction:column; gap:3px; }
+  .fl-spds-head { display:flex; align-items:center; gap:6px; font-size:.68rem; font-weight:700; letter-spacing:.06em; color:var(--muted); }
+  .fl-spd-item { display:block; font-size:.78rem; color:var(--code); background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--c); border-radius:4px; padding:2px 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fl-user { position:relative; }
+  .fl-user .btn-quitar { position:absolute; right:8px; top:4px; }
+  .fl-user:hover .btn-quitar { opacity:1; }
+  .fl-diagrama.fl-v { flex-direction:column; align-items:flex-start; padding-left:8px; overflow-x:auto; }
   .fl-term { flex:none; background:#37474f; color:#fff; font-weight:700; font-size:.78rem; letter-spacing:.12em; padding:10px 22px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.15); }
-  .fl-node { flex:0 0 300px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); border-top:5px solid var(--c); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); min-width:0; }
-  .fl-v .fl-node { flex:none; width:min(520px, 100%); }
-  .fl-head { padding:10px 12px 8px; border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--c) 9%, #fff); border-radius:6px 6px 0 0; }
+  .fl-node { flex:none; width:300px; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-top:5px solid var(--c); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); min-width:0; }
+  .fl-v .fl-node.principal { flex:none; width:340px; }
+  .fl-head { padding:10px 12px 8px; border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--c) 9%, var(--surface)); border-radius:6px 6px 0 0; }
   .fl-paso { display:flex; justify-content:space-between; font-size:.68rem; font-weight:700; letter-spacing:.08em; color:var(--c); }
-  .fl-paso span { color:#78909c; font-weight:600; letter-spacing:0; }
-  .fl-head h3 { font-size:1rem; font-weight:700; margin:3px 0 1px; line-height:1.25; color:#1f2a33; }
-  .fl-sis { font-size:.72rem; color:#5f6b76; text-transform:uppercase; letter-spacing:.03em; }
+  .fl-paso span { color:var(--muted); font-weight:600; letter-spacing:0; }
+  .fl-head h3 { font-size:1rem; font-weight:700; margin:3px 0 1px; line-height:1.25; color:var(--text); }
+  .fl-sis { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
   .fl-meta { padding:8px 12px; display:flex; flex-direction:column; gap:5px; border-bottom:1px solid var(--line); }
-  .fl-spd { display:flex; align-items:center; gap:6px; width:100%; text-align:left; border:1px dashed color-mix(in srgb, var(--c) 45%, #fff); background:#fafbfc; border-radius:6px; padding:4px 8px; font-size:.78rem; color:#37474f; }
+  .fl-spd { display:flex; align-items:center; gap:6px; width:100%; text-align:left; border:1px dashed color-mix(in srgb, var(--c) 45%, var(--surface)); background:var(--surface-2); border-radius:6px; padding:4px 8px; font-size:.78rem; color:var(--text); }
   .fl-spd:not(:disabled):hover { border-style:solid; }
-  .fl-spd span { font-weight:700; font-size:.68rem; letter-spacing:.06em; color:#78909c; }
-  .fl-spd code { color:#1b5e20; font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .fl-spd.vacio code { color:#98a2ad; font-style:italic; font-family:inherit; }
-  .fl-arch { display:flex; gap:6px; align-items:center; font-size:.74rem; color:#5f6b76; font-family:var(--bs-font-monospace); overflow:hidden; }
+  .fl-spd span { font-weight:700; font-size:.68rem; letter-spacing:.06em; color:var(--muted); }
+  .fl-spd code { color:var(--code); font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fl-spd.vacio code { color:var(--muted-2); font-style:italic; font-family:inherit; }
+  .fl-arch { display:flex; gap:6px; align-items:center; font-size:.74rem; color:var(--muted); font-family:var(--bs-font-monospace); overflow:hidden; }
   .fl-arch span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .fl-users { padding:6px 0 8px; flex:1; }
-  .fl-users-head { display:flex; justify-content:space-between; align-items:center; padding:2px 12px 6px; font-size:.72rem; font-weight:700; color:#5f6b76; text-transform:uppercase; letter-spacing:.04em; }
-  .fl-area { margin:4px 12px 2px; padding-left:7px; border-left:3px solid var(--a); font-size:.68rem; font-weight:700; color:#5f6b76; letter-spacing:.04em; }
+  .fl-users-head { display:flex; justify-content:space-between; align-items:center; padding:2px 12px 6px; font-size:.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .fl-area { margin:4px 12px 2px; padding-left:7px; border-left:3px solid var(--a); font-size:.68rem; font-weight:700; color:var(--muted); letter-spacing:.04em; }
   .fl-user { display:flex; gap:8px; align-items:flex-start; padding:4px 12px; cursor:default; }
   body.editable .fl-user { cursor:pointer; }
-  body.editable .fl-user:hover { background:#f1f8f2; }
-  .fl-id { flex:none; min-width:30px; text-align:center; font-size:.72rem; font-weight:700; background:#eceff1; color:#37474f; border-radius:4px; padding:2px 4px; margin-top:1px; }
+  body.editable .fl-user:hover { background:var(--hover); }
+  .fl-id { flex:none; min-width:30px; text-align:center; font-size:.72rem; font-weight:700; background:var(--chip); color:var(--text); border-radius:4px; padding:2px 4px; margin-top:1px; }
   .fl-u { min-width:0; display:flex; flex-direction:column; }
   .fl-u b { font-size:.8rem; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
-  .fl-u small { font-size:.7rem; color:#78909c; overflow-wrap:anywhere; }
-  .fl-user.pendiente b { color:#98a2ad; font-style:italic; }
-  .fl-vacio { padding:6px 12px; font-size:.78rem; color:#98a2ad; font-style:italic; }
-  .fl-foot { display:flex; gap:4px; padding:8px 10px; border-top:1px solid var(--line); background:#fafbfc; border-radius:0 0 10px 10px; }
+  .fl-u small { font-size:.7rem; color:var(--muted); overflow-wrap:anywhere; }
+  .fl-user.pendiente b { color:var(--muted-2); font-style:italic; }
+  .fl-vacio { padding:6px 12px; font-size:.78rem; color:var(--muted-2); font-style:italic; }
+  .fl-foot { display:flex; gap:4px; padding:8px 10px; border-top:1px solid var(--line); background:var(--surface-2); border-radius:0 0 10px 10px; }
   .fl-arrow { flex:none; display:flex; align-items:center; justify-content:center; gap:4px; color:#90a4ae; }
   .fl-h > .fl-arrow { flex-direction:column; width:64px; }
   .fl-v > .fl-arrow { flex-direction:row; height:54px; }
@@ -192,7 +234,7 @@
     .fl-diagrama.fl-h { flex-wrap:wrap; overflow:visible; row-gap:16px; }
     .fl-node { break-inside:avoid; box-shadow:none; }
   }
-  .carga { display:flex; align-items:center; gap:14px; margin:40px auto; padding:18px 22px; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .carga { display:flex; align-items:center; gap:14px; margin:40px auto; padding:18px 22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .btn-ocultar { opacity:.7; } .btn-ocultar:hover { opacity:1; }
   .oculto-col { opacity:.8; } .oculto-col small { font-weight:400; }
   .col-head-sub { align-items:flex-start; }
@@ -205,13 +247,13 @@
 
   /* ---------- Confirmación dentro de la página ---------- */
   .cfm { position:fixed; inset:0; z-index:3000; background:rgba(15,20,25,.5); display:grid; place-items:center; padding:16px; }
-  .cfm-box { background:#fff; border-radius:12px; padding:20px; max-width:440px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+  .cfm-box { background:var(--surface); border-radius:12px; padding:20px; max-width:440px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.2); }
 </style>
 </head>
 <body>
 
 <!-- ================= Barra superior ================= -->
-<header class="bg-white border-bottom px-3 py-2 d-flex flex-wrap gap-2 align-items-center">
+<header class="bg-body border-bottom px-3 py-2 d-flex flex-wrap gap-2 align-items-center">
   <a class="tb-brand" href="areas.html" title="Sistemas y Módulos TFCA"><span class="tb-mark"><i class="bi bi-layers"></i></span>Accesos <b>TFCA</b></a>
   <!-- Mismo menú que Sistemas y Módulos -->
   <nav class="tb-nav" aria-label="Secciones">
@@ -219,11 +261,10 @@
   </nav>
 
   <div class="btn-group btn-group-sm" id="vistas" role="group" aria-label="Vistas">
+    <button class="btn btn-outline-success" data-vista="flujo"><i class="bi bi-diagram-2"></i> Flujo</button>
     <button class="btn btn-outline-success" data-vista="areas"><i class="bi bi-diagram-3"></i> Áreas</button>
-    <button class="btn btn-outline-success" data-vista="modulos"><i class="bi bi-grid-3x3-gap"></i> Módulos</button>
     <button class="btn btn-outline-success" data-vista="roles"><i class="bi bi-person-badge"></i> Roles</button>
     <button class="btn btn-outline-success" data-vista="matriz"><i class="bi bi-table"></i> Matriz</button>
-    <button class="btn btn-outline-success" data-vista="flujo"><i class="bi bi-diagram-2"></i> Flujo</button>
   </div>
 
   <input id="buscar" class="form-control form-control-sm" style="max-width:220px" placeholder="Buscar ID, usuario, nombre…">
@@ -239,6 +280,7 @@
 
   <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
     <span id="hoy" class="small text-muted d-none d-lg-inline"></span>
+    <button id="btnTema" class="btn btn-sm btn-outline-secondary" title="Cambiar tema claro / oscuro" aria-label="Cambiar tema"><i class="bi bi-moon-stars"></i></button>
     <div id="sesion"></div>
     <span id="sync" class="badge" role="button"></span>
     <button id="btnCol" class="btn btn-sm btn-success solo-edicion"></button>
@@ -412,7 +454,8 @@ const DEMO = {
 
 /* ---------------- Estado y persistencia local ---------------- */
 let db = VACIO();                 // se carga al iniciar (ver "Inicio")
-let vista = leerPref('vista', 'modulos');
+let vista = leerPref('vista', 'flujo');
+if (vista === 'modulos' || !['flujo', 'areas', 'roles', 'matriz'].includes(vista)) vista = 'flujo';   // la vista Módulos se integró en Flujo
 let filtro = '';
 const rolesAbiertos = new Set(); // roles con los módulos desplegados (vista Roles)
 
@@ -450,7 +493,8 @@ function mapCatalogo(sistemas = [], modulos = [], cards = {}) {
       orden:num(x.orden), spd:String(x.spd || ''), color:color(x.color, i) })),
     subs: modulos.filter(x => String(x.estatus ?? 1) !== '0').map(x => ({ id:num(x.id), idSistema:num(x.id_sistema), nombre:String(x.nombre || ''),
       archivo:String(x.archivo_subsistema || ''), orden:num(x.orden), flujo:num(x.orden_flujo),
-      oculto:/^(1|true|si|sí)$/i.test(String(x.oculto_accesos ?? '').trim()), spd:String(x.spd ?? '').trim() })),
+      oculto:/^(1|true|si|sí)$/i.test(String(x.oculto_accesos ?? '').trim()),
+      spds:[...new Set(String(x.spd ?? '').split(/[,;\n]+/).map(v => v.trim()).filter(Boolean))], grupo:num(x.grupo_flujo) })),
     cardsPorSub: porSub
   };
 }
@@ -532,7 +576,7 @@ const VISTAS = {
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
              hint:'Arrastra filas para cambiar el rol de una persona · "▸ módulos" despliega los módulos del rol; "Asignar" los da o quita a todo el rol.' },
   flujo:   { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Diagrama del flujo: cada paso es un módulo con su SPD y sus usuarios · flechas ◀ ▶ cambian el orden · clic en un usuario para editar su usuario y nombre · clic en SPD para editarlo.' },
+             hint:'Diagrama del flujo: cada paso es un módulo con sus SPD y usuarios · flechas = cambiar orden · ⧉ = agrupar un módulo debajo de otro · clic en un usuario para editar su usuario y nombre.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
@@ -657,97 +701,203 @@ function elegirVisibles() {
 
 
 /* ---------------- Vista Flujo: diagrama de flujo de los módulos (subsistemas) ----------------
-   INICIO → paso 1 → paso 2 → … → FIN, en el orden del flujo (orden_flujo) y sin los módulos ocultos.
-   Cada paso muestra: módulo, sistema, SPD, archivo y las personas con acceso (ID · usuario · nombre · rol). */
+   INICIO → grupo 1 → grupo 2 → … → FIN. Cada grupo tiene un módulo principal (el que sigue el flujo
+   TURNAR / ACEPTAR) y, opcionalmente, módulos agrupados debajo (horizontal) o al mismo nivel (vertical),
+   que se pueden plegar como una pila de tarjetas. Datos en la hoja Modulos:
+   orden_flujo (orden), grupo_flujo (id del módulo principal) y spd (uno o varios, separados por coma). */
 let flujoDir = leerPref('flujoDir', 'h');
-/** Guarda el nuevo orden de los visibles; los ocultos o filtrados conservan su lugar */
-function guardarFlujo(idsVisibles) {
-  const lista = subsFlujo(), visibles = new Set(idsVisibles), nuevos = idsVisibles.map(id => lista.find(x => x.id === id)).filter(Boolean);
-  let k = 0; const orden = lista.map(x => visibles.has(x.id) ? nuevos[k++] : x);
-  const cambiados = [];
-  orden.forEach((x, i) => { if (x.flujo !== i + 1) { x.flujo = i + 1; cambiados.push(x); } });
-  render();
-  if (cambiados.length) compartir(async () => { for (const x of cambiados) await Compartido.guardar('modulos', { id:x.id, orden_flujo:x.flujo }); }, 'Orden del flujo guardado');
+const Plegados = {
+  get() { try { return new Set(JSON.parse(leerPref('flujoPlegados', '[]')).map(Number)); } catch (e) { return new Set(); } },
+  toggle(id) { const s = this.get(); s.has(id) ? s.delete(id) : s.add(id); guardarPref('flujoPlegados', JSON.stringify([...s])); }
+};
+const SPD_SEP = /[,;\n]+/;
+const spdsDe = sb => sb.spds || [];
+/** Módulo principal del grupo al que pertenece (null = es principal) */
+const cabezaDe = sb => (sb.grupo && sb.grupo !== sb.id && db.subs.find(x => x.id === sb.grupo && !(x.grupo && x.grupo !== x.id && db.subs.some(y => y.id === x.grupo)))) || null;
+/** Estructura completa (incluye ocultos): [{ cab, hijos }] en el orden del flujo */
+function gruposFlujo() {
+  const lista = subsFlujo();
+  return lista.filter(x => !cabezaDe(x)).map(cab => ({ cab, hijos:lista.filter(x => cabezaDe(x) === cab) }));
 }
+/** Renumera orden_flujo siguiendo los grupos y guarda solo lo que cambió (orden y grupo) */
+function guardarEstructura(grupos, msg = 'Flujo guardado') {
+  const cambios = []; let n = 0;
+  grupos.forEach(g => [g.cab, ...g.hijos].forEach((x, k) => {
+    const grupo = k === 0 ? null : g.cab.id; n++;
+    if (x.flujo !== n || (x.grupo ?? null) !== grupo) { x.flujo = n; x.grupo = grupo; cambios.push(x); }
+  }));
+  render();
+  if (cambios.length) return compartir(async () => {
+    for (const x of cambios) await Compartido.guardar('modulos', { id:x.id, orden_flujo:x.flujo, grupo_flujo:x.grupo ?? '' });
+  }, msg);
+}
+/** Arrastre de columnas (vista anterior): reordena los principales visibles */
+function guardarFlujo(idsVisibles) {
+  const gs = gruposFlujo(), vis = idsVisibles.map(id => gs.find(g => g.cab.id === id)).filter(Boolean), set = new Set(vis);
+  let k = 0; guardarEstructura(gs.map(g => set.has(g) ? vis[k++] : g), 'Orden del flujo guardado');
+}
+/** Lo que se dibuja: grupos con al menos un módulo visible (y que coincida con la búsqueda) */
 function pasosFlujo(lista) {
   const ocultos = Ocultos.get();
-  return subsFlujo().filter(sb => !ocultos.has(sb.id)).map(sb => {
-    const m = modDe(sb.idSistema), gente = lista.filter(p => tieneSub(p.id, sb) && coincide(p));
-    return { sb, m, gente };
-  }).filter(x => !filtro || x.gente.length || `${x.sb.nombre} ${x.m.nombre} ${x.sb.spd || ''}`.toLowerCase().includes(filtro));
+  const info = sb => ({ sb, m:modDe(sb.idSistema), gente:lista.filter(p => tieneSub(p.id, sb) && coincide(p)) });
+  const coincideMod = i => !filtro || i.gente.length || `${i.sb.nombre} ${i.m.nombre} ${spdsDe(i.sb).join(' ')}`.toLowerCase().includes(filtro);
+  return gruposFlujo().map(g => {
+    const miembros = [g.cab, ...g.hijos].filter(x => !ocultos.has(x.id)).map(info).filter(coincideMod);
+    return miembros.length ? { g, cab:miembros[0], hijos:miembros.slice(1) } : null;
+  }).filter(Boolean);
 }
-function moverPaso(subId, dir) {
-  const ids = pasosFlujo(empleadosOrdenados()).map(x => x.sb.id), i = ids.indexOf(subId), j = i + dir;
-  if (i < 0 || j < 0 || j >= ids.length) return;
-  [ids[i], ids[j]] = [ids[j], ids[i]];
-  guardarFlujo(ids);
+function moverGrupo(cabId, dir) {
+  const gs = gruposFlujo(), ids = new Set(pasosFlujo(empleadosOrdenados()).map(p => p.g.cab.id)), visibles = gs.filter(g => ids.has(g.cab.id));
+  const i = visibles.findIndex(g => g.cab.id === cabId), j = i + dir;
+  if (i < 0 || j < 0 || j >= visibles.length) return;
+  const a = gs.indexOf(visibles[i]), b = gs.indexOf(visibles[j]);
+  [gs[a], gs[b]] = [gs[b], gs[a]];
+  guardarEstructura(gs, 'Orden del flujo guardado');
+}
+function moverHijo(subId, dir) {
+  const gs = gruposFlujo(), g = gs.find(x => x.hijos.some(h => h.id === subId)); if (!g) return;
+  const ocultos = Ocultos.get(), vis = g.hijos.filter(h => !ocultos.has(h.id));
+  const i = vis.findIndex(h => h.id === subId), j = i + dir;
+  if (i < 0 || j < 0 || j >= vis.length) return;
+  const a = g.hijos.indexOf(vis[i]), b = g.hijos.indexOf(vis[j]);
+  [g.hijos[a], g.hijos[b]] = [g.hijos[b], g.hijos[a]];
+  guardarEstructura(gs, 'Orden del grupo guardado');
+}
+/** Colocar un módulo debajo de otro (mismo grupo) o devolverlo al flujo como paso propio */
+function agruparModulo(subId) {
+  if (!PUEDE_EDITAR) return;
+  const sb = db.subs.find(x => x.id === subId); if (!sb) return;
+  const gs = gruposFlujo(), mio = gs.find(g => g.cab === sb), actual = cabezaDe(sb);
+  const pasos = pasosFlujo(empleadosOrdenados()), nPaso = id => pasos.findIndex(p => p.g.cab.id === id) + 1;
+  const opciones = gs.filter(g => g.cab !== sb).map(g => {
+    const n = nPaso(g.cab.id);
+    return `<option value="${g.cab.id}" ${actual === g.cab ? 'selected' : ''}>${n ? 'Paso ' + n : 'Oculto'} · ${esc(g.cab.nombre)} (${esc(modDe(g.cab.idSistema)?.nombre || '')})</option>`;
+  }).join('');
+  const hijos = mio ? mio.hijos : [];
+  abrirModal(`Agrupar · ${sb.nombre}`, `
+    <form id="f" class="row g-2">
+      <div class="col-12"><label class="form-label small">Colocar este módulo</label>
+        <select name="cab" class="form-select">
+          <option value="" ${actual ? '' : 'selected'}>Como paso propio del flujo (no agrupado)</option>
+          <optgroup label="Debajo de (mismo grupo)">${opciones}</optgroup>
+        </select></div>
+      <div class="col-12 small text-muted">El módulo principal de cada grupo es el que sigue el flujo TURNAR / ACEPTAR; los agrupados quedan
+        ${flujoDir === 'v' ? 'a su lado, en el mismo nivel' : 'debajo de él'} y se pueden plegar.
+        ${hijos.length ? `<br><b>Tiene ${hijos.length} módulo(s) agrupado(s)</b>; si lo colocas debajo de otro, se van con él al nuevo grupo.` : ''}</div>
+      <button hidden></button>
+    </form>`, {
+    async guardar() {
+      const destino = num(new FormData($('#f')).get('cab'));
+      if ((actual?.id ?? null) === destino) return;
+      const lista = gruposFlujo();
+      const origen = lista.find(g => g.cab === sb || g.hijos.includes(sb));
+      const llevar = origen.cab === sb ? [sb, ...origen.hijos] : [sb];
+      // Quitar de donde estaba
+      let pos = lista.indexOf(origen);
+      if (origen.cab === sb) lista.splice(pos, 1); else origen.hijos = origen.hijos.filter(h => h !== sb);
+      if (destino) {
+        const g = lista.find(x => x.cab.id === destino);
+        g.hijos.push(...llevar);
+        await guardarEstructura(lista, `«${sb.nombre}» agrupado debajo de «${g.cab.nombre}»`);
+      } else {
+        lista.splice(origen.cab === sb ? pos : pos + 1, 0, { cab:sb, hijos:[] });
+        await guardarEstructura(lista, `«${sb.nombre}» ahora es un paso propio del flujo`);
+      }
+    }
+  });
 }
 function htmlFlujo(lista) {
-  const pasos = pasosFlujo(lista), ocultos = db.subs.filter(x => Ocultos.has(x.id)).length;
+  const pasos = pasosFlujo(lista), ocultos = db.subs.filter(x => Ocultos.has(x.id)).length, plegados = Plegados.get(), V = flujoDir === 'v';
   const flecha = `<div class="fl-arrow" aria-hidden="true"><span class="fl-lbl">TURNAR</span><span class="fl-line"></span><span class="fl-lbl">ACEPTAR</span></div>`;
-  const nodo = ({ sb, m, gente }, i) => {
+  const ico = (h, v) => `bi-arrow-${V ? v : h}`;
+  const nodo = ({ sb, m, gente }, { etiqueta, principal, gid, iHijo, nHijos, totalHijos, plegado, iGrupo, nGrupos }) => {
     const grupos = [];
     db.areas.forEach(a => { const g = gente.filter(p => p.areaId === a.id); if (g.length) grupos.push({ a, g }); });
     const sin = gente.filter(p => !areaDe(p.areaId)); if (sin.length) grupos.push({ a:null, g:sin });
-    return `<article class="fl-node" style="--c:${m.color}" data-key="sub" data-id="${sb.id}" data-sis="${m.id}">
+    const spds = spdsDe(sb);
+    const mover = principal
+      ? `<button class="btn btn-sm btn-light" data-act="mover-grupo" data-dir="-1" ${iGrupo === 0 ? 'disabled' : ''} title="Mover el grupo antes"><i class="bi ${ico('left', 'up')}"></i></button>
+         <button class="btn btn-sm btn-light" data-act="mover-grupo" data-dir="1" ${iGrupo === nGrupos - 1 ? 'disabled' : ''} title="Mover el grupo después"><i class="bi ${ico('right', 'down')}"></i></button>`
+      : `<button class="btn btn-sm btn-light" data-act="mover-hijo" data-dir="-1" ${iHijo === 0 ? 'disabled' : ''} title="Subir dentro del grupo"><i class="bi ${ico('up', 'left')}"></i></button>
+         <button class="btn btn-sm btn-light" data-act="mover-hijo" data-dir="1" ${iHijo === nHijos - 1 ? 'disabled' : ''} title="Bajar dentro del grupo"><i class="bi ${ico('down', 'right')}"></i></button>`;
+    return `<article class="fl-node ${principal ? 'principal' : 'hijo'} ${plegado ? 'pila' : ''}" style="--c:${m.color}" data-key="sub" data-id="${sb.id}" data-sis="${m.id}" data-grupo="${gid}">
       <header class="fl-head">
-        <div class="fl-paso">PASO ${i + 1}<span>ID ${sb.id}</span></div>
+        <div class="fl-paso">${principal ? 'PASO' : 'MÓDULO'} ${etiqueta}${principal ? '' : ' · en el grupo'}<span>ID ${sb.id}</span></div>
         <h3 title="${esc(sb.nombre)}">${esc(sb.nombre)}</h3>
         <div class="fl-sis">${m.id} · ${esc(m.nombre)}</div>
       </header>
       <div class="fl-meta">
-        <button type="button" class="fl-spd ${sb.spd ? '' : 'vacio'}" data-act="spd-sub" ${PUEDE_EDITAR || sb.spd ? '' : 'disabled'} title="${PUEDE_EDITAR ? 'Editar SPD' : 'SPD'}">
-          <i class="bi bi-database${sb.spd ? '-fill-check' : ''}"></i><span>SPD</span><code>${esc(sb.spd || (PUEDE_EDITAR ? 'Agregar SPD' : 'Sin SPD'))}</code>${PUEDE_EDITAR ? '<i class="bi bi-pencil ms-auto"></i>' : ''}</button>
+        <div class="fl-spds">
+          <div class="fl-spds-head"><i class="bi bi-database${spds.length ? '-fill-check' : ''}"></i> SPD <span class="badge text-bg-light">${spds.length}</span>
+            ${PUEDE_EDITAR ? `<button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-act="spd-sub" title="Agregar o editar SPD"><i class="bi bi-plus-circle"></i> ${spds.length ? 'Editar' : 'Agregar'}</button>` : ''}</div>
+          ${spds.length ? spds.map(s => `<code class="fl-spd-item" title="${esc(s)}">${esc(s)}</code>`).join('') : '<div class="fl-vacio p-0">Sin SPD</div>'}
+        </div>
         ${sb.archivo ? `<div class="fl-arch"><i class="bi bi-file-earmark-code"></i><span>${esc(sb.archivo)}</span></div>` : ''}
       </div>
       <div class="fl-users">
         <div class="fl-users-head"><span><i class="bi bi-people"></i> Usuarios con acceso</span><span class="badge text-bg-light">${gente.length}</span></div>
         ${grupos.map(({ a, g }) => `<div class="fl-area" style="--a:${a?.color || '#90a4ae'}">${esc(a?.nombre || 'SIN ÁREA')}</div>
           ${g.map(p => { const r = rolDe(p.rolId), nc = nombreCompleto(p); return `<div class="fl-user ${nc ? '' : 'pendiente'}" data-pid="${p.id}" title="${PUEDE_EDITAR ? 'Clic para editar usuario y nombre' : esc(nc)}">
-            <span class="fl-id">${p.id}</span><span class="fl-u"><b>${esc(nc || '(SIN NOMBRE)')}</b><small>${esc(p.usuario || 'sin usuario')} · ${esc(r?.nombre || 'SIN ROL')}</small></span></div>`; }).join('')}`).join('')
+            <span class="fl-id">${p.id}</span><span class="fl-u"><b>${esc(nc || '(SIN NOMBRE)')}</b><small>${esc(p.usuario || 'sin usuario')} · ${esc(r?.nombre || 'SIN ROL')}</small></span>
+            ${PUEDE_EDITAR ? `<button class="btn-quitar" data-act="quitar" data-sub="${sb.id}" title="Quitar acceso a este módulo"><i class="bi bi-x-lg"></i></button>` : ''}</div>`; }).join('')}`).join('')
           || '<div class="fl-vacio">Sin usuarios asignados</div>'}
       </div>
-      ${PUEDE_EDITAR ? `<footer class="fl-foot">
-        <button class="btn btn-sm btn-light" data-act="paso" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Mover antes"><i class="bi bi-arrow-${flujoDir === 'v' ? 'up' : 'left'}"></i></button>
-        <button class="btn btn-sm btn-light" data-act="paso" data-dir="1" ${i === pasos.length - 1 ? 'disabled' : ''} title="Mover después"><i class="bi bi-arrow-${flujoDir === 'v' ? 'down' : 'right'}"></i></button>
+      ${principal && totalHijos ? `<button type="button" class="fl-toggle" data-act="plegar" aria-expanded="${!plegado}">
+          <i class="bi bi-chevron-${plegado ? (V ? 'right' : 'down') : (V ? 'left' : 'up')}"></i> ${plegado ? `Mostrar ${totalHijos} módulo${totalHijos === 1 ? '' : 's'} del grupo` : 'Plegar el grupo'}</button>` : ''}
+      ${PUEDE_EDITAR ? `<footer class="fl-foot">${mover}
+        <button class="btn btn-sm btn-light" data-act="agrupar" title="Agrupar con otro módulo o volver a paso propio"><i class="bi bi-collection"></i></button>
         <button class="btn btn-sm btn-outline-success ms-auto" data-act="personas" title="Agregar o quitar usuarios"><i class="bi bi-person-plus"></i> Usuarios</button>
         <button class="btn btn-sm btn-light" data-act="edit-col" title="Editar módulo"><i class="bi bi-pencil-square"></i></button>
       </footer>` : ''}
     </article>`;
   };
+  const grupoHtml = (p, i) => {
+    const gid = p.g.cab.id, plegado = plegados.has(gid) && p.hijos.length > 0;
+    const cab = nodo(p.cab, { etiqueta:i + 1, principal:true, gid, totalHijos:p.hijos.length, plegado, iGrupo:i, nGrupos:pasos.length });
+    const hijos = plegado ? '' : p.hijos.map((h, k) => nodo(h, { etiqueta:`${i + 1}.${k + 1}`, principal:false, gid, iHijo:k, nHijos:p.hijos.length })).join('');
+    return `<div class="fl-grupo ${p.hijos.length ? 'con-hijos' : ''}" data-grupo="${gid}">${cab}${hijos ? `<div class="fl-hijos">${hijos}</div>` : ''}</div>`;
+  };
   const barra = `<div class="fl-bar">
       <div class="btn-group btn-group-sm" role="group" aria-label="Dirección del diagrama">
-        <button class="btn btn-outline-secondary ${flujoDir === 'h' ? 'active' : ''}" data-fl-dir="h"><i class="bi bi-arrow-right"></i> Horizontal</button>
-        <button class="btn btn-outline-secondary ${flujoDir === 'v' ? 'active' : ''}" data-fl-dir="v"><i class="bi bi-arrow-down"></i> Vertical</button>
+        <button class="btn btn-outline-secondary ${V ? '' : 'active'}" data-fl-dir="h"><i class="bi bi-arrow-right"></i> Horizontal</button>
+        <button class="btn btn-outline-secondary ${V ? 'active' : ''}" data-fl-dir="v"><i class="bi bi-arrow-down"></i> Vertical</button>
       </div>
+      <button class="btn btn-sm btn-outline-secondary" data-fl-plegar="1" title="Plegar todos los grupos"><i class="bi bi-arrows-collapse"></i> Plegar grupos</button>
+      <button class="btn btn-sm btn-outline-secondary" data-fl-plegar="0" title="Desplegar todos los grupos"><i class="bi bi-arrows-expand"></i> Desplegar</button>
       <button class="btn btn-sm btn-outline-secondary" data-fl-print><i class="bi bi-printer"></i> Imprimir / PDF</button>
-      <span class="small text-muted">${pasos.length} paso${pasos.length === 1 ? '' : 's'}${ocultos ? ` · ${ocultos} módulo(s) oculto(s) no aparecen` : ''}${filtro ? ' · filtrado por la búsqueda' : ''}</span>
+      <span class="small text-muted">${pasos.length} paso${pasos.length === 1 ? '' : 's'} · ${pasos.reduce((n, p) => n + 1 + p.hijos.length, 0)} módulos${ocultos ? ` · ${ocultos} oculto(s)` : ''}${filtro ? ' · filtrado por la búsqueda' : ''}</span>
     </div>`;
   if (!pasos.length) return barra + `<div class="p-4 text-muted">No hay módulos para mostrar${filtro ? ' con esa búsqueda' : ''}.</div>`;
-  return barra + `<div class="fl-diagrama fl-${flujoDir}">
-      <div class="fl-term">INICIO</div>${flecha}
-      ${pasos.map((p, i) => nodo(p, i)).join(flecha)}
-      ${flecha}<div class="fl-term">FIN</div>
-    </div>`;
+  const term = t => `<div class="fl-termwrap"><div class="fl-term">${t}</div></div>`;
+  return barra + `<div class="fl-diagrama fl-${flujoDir}">${term('INICIO')}${flecha}${pasos.map(grupoHtml).join(flecha)}${flecha}${term('FIN')}</div>`;
 }
-/** SPD de un módulo (subsistema): columna spd de la hoja Modulos */
+/** SPD de un módulo: uno o varios (columna spd de la hoja Modulos, separados por coma) */
 function editarSpdSub(subId) {
-  const sb = db.subs.find(x => x.id === subId); if (!sb) return;
-  if (!PUEDE_EDITAR) return;
+  const sb = db.subs.find(x => x.id === subId); if (!sb || !PUEDE_EDITAR) return;
+  const fila = (v = '') => `<div class="input-group input-group-sm mb-2" data-spd-row><span class="input-group-text"><i class="bi bi-database"></i></span>
+      <input name="spd" class="form-control font-monospace" value="${esc(v)}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off">
+      <button type="button" class="btn btn-outline-danger" data-spd-del title="Quitar"><i class="bi bi-x-lg"></i></button></div>`;
   abrirModal(`SPD · ${sb.nombre}`, `
-    <form id="f" class="row g-2">
-      <div class="col-12"><label class="form-label small">Nombre del SPD <span class="text-muted">(opcional)</span></label>
-        <input name="spd" class="form-control font-monospace" value="${esc(sb.spd || '')}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off"></div>
-      <div class="col-12 small text-muted">Se guarda en la hoja Modulos (columna spd). Déjalo vacío para quitarlo.</div>
+    <form id="f">
+      <div id="spdLista">${(spdsDe(sb).length ? spdsDe(sb) : ['']).map(fila).join('')}</div>
+      <button type="button" class="btn btn-sm btn-outline-success" id="spdAdd"><i class="bi bi-plus-lg"></i> Agregar otro SPD</button>
+      <div class="small text-muted mt-2">Un módulo puede usar varios SPD. Se guardan en la hoja Modulos (columna spd, separados por coma). Deja vacío para quitarlos.</div>
       <button hidden></button>
     </form>`, {
     async guardar() {
-      const spd = (new FormData($('#f')).get('spd') || '').trim();
-      if (spd === (sb.spd || '')) return;
-      sb.spd = spd; render();
-      await compartir(() => Compartido.guardar('modulos', { id:sb.id, spd }), spd ? `SPD guardado: ${spd}` : 'SPD eliminado');
+      const spds = [...new Set([...modalEl.querySelectorAll('[name="spd"]')].map(i => i.value.trim()).filter(Boolean).flatMap(v => v.split(SPD_SEP).map(x => x.trim()).filter(Boolean)))];
+      if (spds.join(',') === spdsDe(sb).join(',')) return;
+      sb.spds = spds; render();
+      await compartir(() => Compartido.guardar('modulos', { id:sb.id, spd:spds.join(', ') }), spds.length ? `${spds.length} SPD guardado(s) en «${sb.nombre}»` : 'SPD eliminados');
     }
   });
+  const body = modalEl.querySelector('.modal-body');
+  body.onclick = e => {
+    if (e.target.closest('#spdAdd')) { $('#spdLista').insertAdjacentHTML('beforeend', fila()); return $('#spdLista').lastElementChild.querySelector('input').focus(); }
+    const del = e.target.closest('[data-spd-del]');
+    if (del) { const rows = document.querySelectorAll('#spdLista [data-spd-row]'); if (rows.length > 1) del.closest('[data-spd-row]').remove(); else rows[0].querySelector('input').value = ''; }
+  };
+  body.onkeydown = e => { if (e.key === 'Enter' && e.target.name === 'spd') { e.preventDefault(); $('#spdAdd').click(); } };
 }
 
 /* Vista Módulos: un grupo por SUBSISTEMA (cabecera = subsistema, abajo el sistema en pequeño),
@@ -804,7 +954,7 @@ function htmlModulos(lista) {
           <button type="button" class="sis-mini" data-act="edit-sis" title="${PUEDE_EDITAR ? 'Editar sistema' : 'Sistema'} ${esc(m.nombre)}" ${PUEDE_EDITAR ? '' : 'disabled'}>${m.id} · ${esc(m.nombre)}</button>
         </span>
         ${sb.archivo ? `<span class="folder-tag" title="Archivo del subsistema">${esc(sb.archivo)}</span>` : ''}
-        <button class="btn btn-sm btn-link btn-spd ${sb.spd ? 'tiene' : ''}" data-act="spd-sub" ${PUEDE_EDITAR || sb.spd ? '' : 'disabled'} title="${sb.spd ? 'SPD: ' + esc(sb.spd) : 'SPD (opcional)'}"><i class="bi ${sb.spd ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
+        <button class="btn btn-sm btn-link btn-spd ${spdsDe(sb).length ? 'tiene' : ''}" data-act="spd-sub" ${PUEDE_EDITAR ? '' : 'disabled'} title="${spdsDe(sb).length ? 'SPD: ' + esc(spdsDe(sb).join(', ')) : 'SPD (opcional)'}"><i class="bi ${spdsDe(sb).length ? 'bi-database-fill-check' : 'bi-database'}"></i></button>
         <span class="badge bg-light text-dark">${gente.length}</span>
         ${PUEDE_EDITAR ? `<button class="btn btn-sm btn-link text-white p-0" data-act="personas" title="Agregar o quitar personas"><i class="bi bi-person-plus"></i></button>` : ''}
         ${btnEditar()}
@@ -882,7 +1032,7 @@ function render() {
   document.querySelectorAll('#vistas [data-vista]').forEach(b => b.classList.toggle('active', b.dataset.vista === vista));
   $('#btnCol').innerHTML = `<i class="bi bi-plus-lg"></i> ${v.nuevo}`;
   { const n = db.subs.filter(x => Ocultos.has(x.id)).length, b = $('#btnVisibles');
-    b.classList.toggle('d-none', vista !== 'modulos' || !PUEDE_EDITAR);
+    b.classList.toggle('d-none', vista !== 'flujo' || !PUEDE_EDITAR);
     b.classList.toggle('btn-warning', n > 0); b.classList.toggle('btn-outline-secondary', !n);
     b.querySelector('span').textContent = n ? `Módulos visibles (${n} ocultos)` : 'Módulos visibles'; }
   $('#hint').textContent = PUEDE_EDITAR ? v.hint : HINT_LECTURA;
@@ -1361,7 +1511,7 @@ function editarSub(subId, sistemaId) {
       <div class="col-12"><label class="form-label small">Nombre</label><input name="nombre" class="form-control text-uppercase" value="${esc(s.nombre)}" placeholder="Ej. ALTA DE PROMOCIONES"></div>
       <div class="col-8"><label class="form-label small">Archivo del subsistema</label><input name="archivo" class="form-control font-monospace" value="${esc(s.archivo)}" placeholder="Ej. alta_promociones.html"></div>
       <div class="col-4"><label class="form-label small">Orden en su sistema</label><input name="orden" type="number" min="1" class="form-control" value="${s.orden ?? ''}"></div>
-      <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional)</span></label><input name="spd" class="form-control font-monospace" value="${esc(s.spd || '')}" placeholder="Ej. SP_ALTA_PROMOCION" autocomplete="off"></div>
+      <div class="col-12"><label class="form-label small">SPD <span class="text-muted">(opcional; varios separados por coma)</span></label><input name="spd" class="form-control font-monospace" value="${esc((s.spds || []).join(', '))}" placeholder="Ej. SP_ALTA_PROMOCION, SP_VALIDA_FOLIO" autocomplete="off"></div>
       <div class="col-12"><label class="form-label small">Sistema</label><select name="sistema" class="form-select">${opciones(db.modulos, s.idSistema)}</select></div>
       <div class="col-12 small text-muted">${nuevo ? 'El ID se asigna automáticamente.' : `Tiene ${nCards} card(s) en Sistemas y Módulos; si cambias el módulo, se mueven con él.`}
         Los cambios se ven también en Sistemas y Módulos.</div>
@@ -1375,7 +1525,7 @@ function editarSub(subId, sistemaId) {
       if (!nuevo && idSistema !== s.idSistema &&
           !await confirmar(`¿Mover "${nombre}" a ${modDe(idSistema)?.nombre}? Se lleva sus ${nCards} card(s).`)) return false;
       const fila = { nombre, archivo_subsistema:(f.get('archivo') || '').trim(), orden:num(f.get('orden')) ?? subsDe(idSistema).length + 1, id_sistema:idSistema,
-                     spd:(f.get('spd') || '').trim() };
+                     spd:[...new Set(String(f.get('spd') || '').split(/[,;\n]+/).map(v => v.trim()).filter(Boolean))].join(', ') };
       if (nuevo) Object.assign(fila, { estatus:1, fecha_alta:stamp() }); else fila.id = s.id;
       await compartir(() => Compartido.guardar('modulos', fila), nuevo ? 'Subsistema agregado (también en Sistemas)' : 'Subsistema guardado (también en Sistemas)');
     },
@@ -1534,11 +1684,24 @@ $('#vistas').addEventListener('click', e => {
 });
 $('#buscar').addEventListener('input', e => { filtro = e.target.value.trim().toLowerCase(); render(); });
 $('#btnVisibles').onclick = () => elegirVisibles();
+/* Tema claro / oscuro: se guarda en localStorage (tfca_theme y las preferencias de Sistemas y Módulos) */
+const temaActual = () => document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+function pintarBotonTema() { $('#btnTema').innerHTML = `<i class="bi ${temaActual() === 'dark' ? 'bi-sun' : 'bi-moon-stars'}"></i>`; }
+$('#btnTema').onclick = () => {
+  const t = temaActual() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-bs-theme', t);
+  try {
+    localStorage.setItem('tfca_theme', t);
+    const p = JSON.parse(localStorage.getItem('tfca_areas_prefs') || '{}'); p.tema = t; localStorage.setItem('tfca_areas_prefs', JSON.stringify(p));
+  } catch (e) {}
+  pintarBotonTema(); toast(t === 'dark' ? 'Tema oscuro (se recuerda en este navegador)' : 'Tema claro (se recuerda en este navegador)');
+};
+pintarBotonTema();
 $('#chkCompacto').checked = leerPref('compacto', '0') === '1';
 $('#chkCompacto').addEventListener('change', e => { guardarPref('compacto', e.target.checked ? '1' : '0'); render(); });
 $('#chkPend').checked = leerPref('ocultarPend', '1') === '1';
 $('#chkPend').addEventListener('change', e => { guardarPref('ocultarPend', e.target.checked ? '1' : '0'); render(); });
-$('#btnCol').onclick  = () => vista === 'modulos' ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
+$('#btnCol').onclick  = () => (vista === 'modulos' || vista === 'flujo') ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
 $('#btnPart').onclick = () => editarEmpleado(null);
 $('#sync').onclick    = () => { if (MODO === 'drive') driveListo ? guardarDrive() : cargarDrive(); };
 
@@ -1552,7 +1715,10 @@ $('#board').addEventListener('click', e => {
     if (act.dataset.act === 'personas') return sec.dataset.key === 'sub' ? asignarPersonasSub(+sec.dataset.id) : asignarPersonas(+sec.dataset.id);
     if (act.dataset.act === 'edit-sis') return editarColumna('modulo', +sec.dataset.sis);
     if (act.dataset.act === 'spd-sub')  return editarSpdSub(+sec.dataset.id);
-    if (act.dataset.act === 'paso')     return moverPaso(+sec.dataset.id, +act.dataset.dir);
+    if (act.dataset.act === 'mover-grupo') return moverGrupo(+sec.dataset.grupo, +act.dataset.dir);
+    if (act.dataset.act === 'mover-hijo')  return moverHijo(+sec.dataset.id, +act.dataset.dir);
+    if (act.dataset.act === 'agrupar')  return agruparModulo(+sec.dataset.id);
+    if (act.dataset.act === 'plegar')   { Plegados.toggle(+sec.dataset.grupo); return render(); }
     if (act.dataset.act === 'ocultar') { const sb = db.subs.find(x => x.id === +sec.dataset.id); return Ocultos.toggle(sb.id, true, `«${sb.nombre}» oculto para todos (Módulos visibles para mostrarlo)`); }
     if (act.dataset.act === 'ver-ocultos') return elegirVisibles();
     if (act.dataset.act === 'modulos-rol') return asignarModulosRol(+sec.dataset.id);
@@ -1564,12 +1730,15 @@ $('#board').addEventListener('click', e => {
       rolesAbiertos.has(id) ? rolesAbiertos.delete(id) : rolesAbiertos.add(id);
       return render();
     }
-    if (act.dataset.act === 'add-col')  return vista === 'modulos' ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
+    if (act.dataset.act === 'add-col')  return (vista === 'modulos' || vista === 'flujo') ? editarSub(null, db.modulos[0]?.id) : editarColumna(VISTAS[vista].key, null);
     if (act.dataset.act === 'edit-col') return sec.dataset.key === 'sub' ? editarSub(+sec.dataset.id, +sec.dataset.sis) : editarColumna(sec.dataset.key, +sec.dataset.id);
   }
   const dir = e.target.closest('[data-fl-dir]');
   if (dir) { flujoDir = dir.dataset.flDir; guardarPref('flujoDir', flujoDir); return render(); }
   if (e.target.closest('[data-fl-print]')) return window.print();
+  const pl = e.target.closest('[data-fl-plegar]');
+  if (pl) { const ids = pl.dataset.flPlegar === '1' ? gruposFlujo().filter(g => g.hijos.length).map(g => g.cab.id) : [];
+    guardarPref('flujoPlegados', JSON.stringify(ids)); return render(); }
   const row = e.target.closest('[data-pid]');
   if (row && !e.target.closest('input')) editarEmpleado(empDe(+row.dataset.pid));
 });
