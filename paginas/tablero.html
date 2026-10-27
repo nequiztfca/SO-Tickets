@@ -185,6 +185,20 @@
   .fl-spds-head { display:flex; align-items:center; gap:6px; font-size:.68rem; font-weight:700; letter-spacing:.06em; color:var(--muted); }
   .fl-spd-item { display:block; font-size:.78rem; color:var(--code); background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--c); border-radius:4px; padding:2px 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .fl-user { position:relative; }
+  /* Arrastrar y soltar en el flujo */
+  body.editable .fl-head[draggable="true"] { cursor:grab; }
+  body.editable .fl-head[draggable="true"]:active { cursor:grabbing; }
+  .fl-node.arrastrando, .fl-grupo.arrastrando .fl-node { opacity:.4; }
+  .fl-soltar { display:none; font-size:.62rem; font-weight:700; color:var(--verde); text-align:center; line-height:1.2; }
+  .fl-arrastrando .fl-arrow { border-radius:10px; outline:2px dashed color-mix(in srgb, var(--verde) 35%, transparent); outline-offset:-2px; }
+  .fl-arrastrando .fl-h > .fl-arrow { min-height:150px; width:84px; }
+  .fl-arrastrando .fl-v > .fl-arrow { height:84px; }
+  .fl-arrow.drop-ok { background:color-mix(in srgb, var(--verde) 14%, transparent); outline:2px dashed var(--verde); }
+  .fl-arrow.drop-ok .fl-soltar { display:block; }
+  .fl-h > .fl-arrow.drop-ok .fl-soltar { max-width:76px; }
+  .fl-node.drop-ok { outline:3px dashed var(--verde); outline-offset:3px; position:relative; }
+  .fl-node.drop-ok::after { content:"Soltar para colocar debajo"; position:absolute; left:50%; bottom:-14px; transform:translateX(-50%); background:var(--verde); color:#fff; font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; z-index:2; }
+  .fl-v .fl-node.drop-ok::after { content:"Soltar para colocar a su lado"; bottom:auto; top:50%; left:auto; right:-12px; transform:translate(100%, -50%); }
   .fl-user .btn-quitar { position:absolute; right:8px; top:4px; }
   .fl-user:hover .btn-quitar { opacity:1; }
   .fl-diagrama.fl-v { flex-direction:column; align-items:flex-start; padding-left:8px; overflow-x:auto; }
@@ -576,7 +590,7 @@ const VISTAS = {
   roles:   { key:'rol',    coleccion:()=>db.roles,   campo:'rolId',  nuevo:'Rol',
              hint:'Arrastra filas para cambiar el rol de una persona · "▸ módulos" despliega los módulos del rol; "Asignar" los da o quita a todo el rol.' },
   flujo:   { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
-             hint:'Diagrama del flujo: cada paso es un módulo con sus SPD y usuarios · flechas = cambiar orden · ⧉ = agrupar un módulo debajo de otro · clic en un usuario para editar su usuario y nombre.' },
+             hint:'Arrastra un módulo desde su cabecera: sobre una flecha TURNAR/ACEPTAR = paso del flujo · sobre otro módulo = debajo de él (mismo grupo) · ⧉ y flechas también sirven · clic en un usuario para editarlo.' },
   matriz:  { key:'modulo', coleccion:()=>db.modulos, nuevo:'Módulo',
              hint:'Marca o desmarca para dar o quitar un módulo. Amarillo = permisos parciales (edítalos desde la persona).' }
 };
@@ -808,7 +822,7 @@ function agruparModulo(subId) {
 }
 function htmlFlujo(lista) {
   const pasos = pasosFlujo(lista), ocultos = db.subs.filter(x => Ocultos.has(x.id)).length, plegados = Plegados.get(), V = flujoDir === 'v';
-  const flecha = `<div class="fl-arrow" aria-hidden="true"><span class="fl-lbl">TURNAR</span><span class="fl-line"></span><span class="fl-lbl">ACEPTAR</span></div>`;
+  const flecha = pos => `<div class="fl-arrow" data-pos="${pos}" aria-hidden="true"><span class="fl-lbl">TURNAR</span><span class="fl-line"></span><span class="fl-lbl">ACEPTAR</span><span class="fl-soltar">Soltar aquí como paso</span></div>`;
   const ico = (h, v) => `bi-arrow-${V ? v : h}`;
   const nodo = ({ sb, m, gente }, { etiqueta, principal, gid, iHijo, nHijos, totalHijos, plegado, iGrupo, nGrupos }) => {
     const grupos = [];
@@ -821,7 +835,7 @@ function htmlFlujo(lista) {
       : `<button class="btn btn-sm btn-light" data-act="mover-hijo" data-dir="-1" ${iHijo === 0 ? 'disabled' : ''} title="Subir dentro del grupo"><i class="bi ${ico('up', 'left')}"></i></button>
          <button class="btn btn-sm btn-light" data-act="mover-hijo" data-dir="1" ${iHijo === nHijos - 1 ? 'disabled' : ''} title="Bajar dentro del grupo"><i class="bi ${ico('down', 'right')}"></i></button>`;
     return `<article class="fl-node ${principal ? 'principal' : 'hijo'} ${plegado ? 'pila' : ''}" style="--c:${m.color}" data-key="sub" data-id="${sb.id}" data-sis="${m.id}" data-grupo="${gid}">
-      <header class="fl-head">
+      <header class="fl-head" ${PUEDE_EDITAR ? `draggable="true" title="Arrastra: sobre una flecha = paso del flujo · sobre un módulo = debajo de él"` : ''}>
         <div class="fl-paso">${principal ? 'PASO' : 'MÓDULO'} ${etiqueta}${principal ? '' : ' · en el grupo'}<span>ID ${sb.id}</span></div>
         <h3 title="${esc(sb.nombre)}">${esc(sb.nombre)}</h3>
         <div class="fl-sis">${m.id} · ${esc(m.nombre)}</div>
@@ -869,8 +883,70 @@ function htmlFlujo(lista) {
     </div>`;
   if (!pasos.length) return barra + `<div class="p-4 text-muted">No hay módulos para mostrar${filtro ? ' con esa búsqueda' : ''}.</div>`;
   const term = t => `<div class="fl-termwrap"><div class="fl-term">${t}</div></div>`;
-  return barra + `<div class="fl-diagrama fl-${flujoDir}">${term('INICIO')}${flecha}${pasos.map(grupoHtml).join(flecha)}${flecha}${term('FIN')}</div>`;
+  return barra + `<div class="fl-diagrama fl-${flujoDir}">${term('INICIO')}${flecha(0)}${pasos.map((p, i) => grupoHtml(p, i) + flecha(i + 1)).join('')}${term('FIN')}</div>`;
 }
+
+/* ---------------- Flujo: arrastrar y soltar ----------------
+   · Soltar sobre una FLECHA (TURNAR / ACEPTAR) → el módulo pasa a ser un paso principal en ese lugar del flujo.
+   · Soltar sobre un MÓDULO → queda debajo de él, en su grupo (en vertical, a su lado).
+   Si se arrastra un principal, se lleva a sus módulos agrupados. Se arrastra desde la cabecera del módulo. */
+function moverA(subId, dest) {
+  const gs = gruposFlujo(), sb = db.subs.find(x => x.id === subId); if (!sb) return;
+  const origen = gs.find(g => g.cab === sb || g.hijos.includes(sb)); if (!origen) return;
+  const esCab = origen.cab === sb, llevar = esCab ? [sb, ...origen.hijos] : [sb];
+  const ids = new Set(pasosFlujo(empleadosOrdenados()).map(p => p.g.cab.id)), visibles = gs.filter(g => ids.has(g.cab.id));
+  if (dest.tipo === 'paso') {
+    let pos = dest.pos < visibles.length ? gs.indexOf(visibles[dest.pos]) : (visibles.length ? gs.indexOf(visibles[visibles.length - 1]) + 1 : gs.length);
+    if (esCab) { const i = gs.indexOf(origen); if (i === pos || i + 1 === pos) return; gs.splice(i, 1); if (i < pos) pos--; }
+    else origen.hijos.splice(origen.hijos.indexOf(sb), 1);
+    gs.splice(pos, 0, { cab:sb, hijos:esCab ? origen.hijos : [] });
+    return guardarEstructura(gs, `«${sb.nombre}» ${esCab ? 'se movió en' : 'ahora es un paso principal de'} el flujo`);
+  }
+  const t = db.subs.find(x => x.id === dest.id);
+  if (!t || llevar.includes(t)) return;
+  if (esCab) gs.splice(gs.indexOf(origen), 1); else origen.hijos.splice(origen.hijos.indexOf(sb), 1);
+  const gt = gs.find(g => g.cab === t || g.hijos.includes(t));
+  gt.hijos.splice(gt.cab === t ? 0 : gt.hijos.indexOf(t) + 1, 0, ...llevar);
+  Plegados.get().has(gt.cab.id) && Plegados.toggle(gt.cab.id);          // se despliega para ver dónde quedó
+  return guardarEstructura(gs, `«${sb.nombre}» quedó debajo de «${t.nombre}» (grupo de «${gt.cab.nombre}»)`);
+}
+let flArrastre = null;
+const limpiarDrop = () => document.querySelectorAll('.drop-ok').forEach(x => x.classList.remove('drop-ok'));
+$('#board').addEventListener('dragstart', e => {
+  const h = e.target.closest?.('.fl-head[draggable="true"]'); if (!h || !PUEDE_EDITAR) return;
+  const n = h.closest('.fl-node'); flArrastre = +n.dataset.id;
+  e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(flArrastre));
+  try { e.dataTransfer.setDragImage(n, 30, 20); } catch (err) { /* navegador sin soporte */ }
+  // Se marca en el siguiente cuadro para no alterar la imagen que se arrastra
+  requestAnimationFrame(() => { document.body.classList.add('fl-arrastrando'); n.classList.add('arrastrando');
+    if (n.classList.contains('principal')) n.closest('.fl-grupo')?.classList.add('arrastrando'); });
+});
+$('#board').addEventListener('dragend', () => {
+  flArrastre = null; limpiarDrop();
+  document.body.classList.remove('fl-arrastrando');
+  document.querySelectorAll('.arrastrando').forEach(x => x.classList.remove('arrastrando'));
+});
+const destinoDrop = e => {
+  if (flArrastre == null) return null;
+  const flecha = e.target.closest?.('.fl-arrow[data-pos]'); if (flecha) return flecha;
+  const nodo = e.target.closest?.('.fl-node'); if (!nodo || +nodo.dataset.id === flArrastre) return null;
+  if (+nodo.dataset.grupo === flArrastre) return null;                     // un principal no se suelta sobre sus propios agrupados
+  return nodo;
+};
+$('#board').addEventListener('dragover', e => {
+  const d = destinoDrop(e); if (!d) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  if (!d.classList.contains('drop-ok')) { limpiarDrop(); d.classList.add('drop-ok'); }
+});
+$('#board').addEventListener('dragleave', e => { const d = destinoDrop(e); if (d && !d.contains(e.relatedTarget)) d.classList.remove('drop-ok'); });
+$('#board').addEventListener('drop', e => {
+  const d = destinoDrop(e); if (!d) return;
+  e.preventDefault();
+  const id = flArrastre; limpiarDrop();
+  if (d.classList.contains('fl-arrow')) moverA(id, { tipo:'paso', pos:+d.dataset.pos });
+  else moverA(id, { tipo:'debajo', id:+d.dataset.id });
+});
+
 /** SPD de un módulo: uno o varios (columna spd de la hoja Modulos, separados por coma) */
 function editarSpdSub(subId) {
   const sb = db.subs.find(x => x.id === subId); if (!sb || !PUEDE_EDITAR) return;
